@@ -2,6 +2,7 @@
   "name": "nocaap",
   "version": "0.1.0",
   "description": "Normalized Organizational Context-as-a-Package. Standardize your AI agent context.",
+  "type": "module",
   "bin": {
     "nocaap": "./dist/index.js"
   },

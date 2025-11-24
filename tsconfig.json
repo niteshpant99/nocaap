@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    // Language & Module
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    
+    // Interop
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,        // Required for tsup/esbuild
+    
+    // Type Checking (strict++)
+    "strict": true,
+    "noUncheckedIndexedAccess": true,   // arr[0] returns T | undefined
+    "noImplicitReturns": true,          // All code paths must return
+    "noFallthroughCasesInSwitch": true, // Prevent switch fallthrough bugs
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    
+    // Emit - tsup handles this, so we disable
+    "noEmit": true,
+    
+    // Types
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
