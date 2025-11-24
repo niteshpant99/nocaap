@@ -41,6 +41,31 @@ export async function fetchRegistry(url: string): Promise<Registry> {
   }
 
   if (!response.ok) {
+    // Provide helpful error message for common issues
+    if (response.status === 404) {
+      const isRawGitHub = url.includes('raw.githubusercontent.com');
+      const isGitHubBlob = url.includes('github.com') && url.includes('/blob/');
+      
+      let hint = '';
+      if (isRawGitHub) {
+        hint = '\n\nPossible causes:\n' +
+          '  • The repository is PRIVATE (raw.githubusercontent.com only works for public repos)\n' +
+          '  • The file path is incorrect\n' +
+          '  • The branch name is wrong\n\n' +
+          'For private repos, you\'ll need to:\n' +
+          '  1. Make the registry file public, OR\n' +
+          '  2. Use `nocaap add` to add packages directly with git@ URLs';
+      } else if (isGitHubBlob) {
+        hint = '\n\nDid you mean to use the raw URL?\n' +
+          '  Change: github.com/.../blob/main/...\n' +
+          '  To:     raw.githubusercontent.com/.../main/...';
+      }
+      
+      throw new Error(
+        `Failed to fetch registry from ${url}: HTTP 404 Not Found${hint}`
+      );
+    }
+    
     throw new Error(
       `Failed to fetch registry from ${url}: HTTP ${response.status} ${response.statusText}`
     );

@@ -53,6 +53,47 @@ export async function checkAccess(repoUrl: string): Promise<boolean> {
   }
 }
 
+/**
+ * Detect the default branch of a repository (main, master, etc.)
+ * Uses `git ls-remote --symref` to query the remote HEAD reference
+ * @returns The default branch name, or 'main' as fallback
+ */
+export async function getDefaultBranch(repoUrl: string): Promise<string> {
+  log.debug(`Detecting default branch for ${repoUrl}`);
+
+  try {
+    const git = createGit();
+    // ls-remote --symref shows the symbolic ref for HEAD
+    const result = await git.listRemote(['--symref', repoUrl, 'HEAD']);
+    
+    // Parse output like: "ref: refs/heads/main\tHEAD"
+    const match = result.match(/ref:\s+refs\/heads\/([^\t\s]+)/);
+    if (match && match[1]) {
+      log.debug(`Default branch detected: ${match[1]}`);
+      return match[1];
+    }
+
+    // Fallback: try to detect from available branches
+    const branchesResult = await git.listRemote(['--heads', repoUrl]);
+    
+    // Check for common branch names in order of preference
+    const commonBranches = ['main', 'master', 'develop', 'trunk'];
+    for (const branch of commonBranches) {
+      if (branchesResult.includes(`refs/heads/${branch}`)) {
+        log.debug(`Default branch fallback: ${branch}`);
+        return branch;
+      }
+    }
+
+    log.debug('Could not detect default branch, using "main"');
+    return 'main';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    log.debug(`Failed to detect default branch: ${message}, using "main"`);
+    return 'main';
+  }
+}
+
 // =============================================================================
 // Clone Operations
 // =============================================================================
@@ -78,14 +119,18 @@ export interface CloneResult {
  * Uses --filter=blob:none --sparse --depth 1 for minimal download
  *
  * Clone sequence:
- * 1. git clone --filter=blob:none --sparse --depth 1 [--branch <branch>] <url> <target>
- * 2. cd <target> && git sparse-checkout set <path>
+ * 1. Auto-detect default branch if not specified
+ * 2. git clone --filter=blob:none --sparse --depth 1 --branch <branch> <url> <target>
+ * 3. cd <target> && git sparse-checkout set --no-cone <path>
  */
 export async function sparseClone(options: CloneOptions): Promise<CloneResult> {
-  const { repoUrl, targetDir, sparsePath, branch } = options;
+  const { repoUrl, targetDir, sparsePath } = options;
   const normalizedTarget = paths.toUnix(targetDir);
 
   log.debug(`Sparse cloning ${repoUrl} to ${normalizedTarget}`);
+
+  // Auto-detect default branch if not specified
+  const branch = options.branch || await getDefaultBranch(repoUrl);
 
   // Check if target already exists
   if (await paths.exists(normalizedTarget)) {
@@ -111,11 +156,8 @@ export async function sparseClone(options: CloneOptions): Promise<CloneResult> {
     '--filter=blob:none', // Partial clone - no blobs initially
     '--sparse', // Enable sparse checkout
     '--depth', '1', // Shallow clone - no history
+    '--branch', branch, // Always specify branch (auto-detected if not provided)
   ];
-
-  if (branch) {
-    cloneArgs.push('--branch', branch);
-  }
 
   cloneArgs.push(repoUrl, normalizedTarget);
 
@@ -135,7 +177,9 @@ export async function sparseClone(options: CloneOptions): Promise<CloneResult> {
     const normalizedSparsePath = paths.toUnix(sparsePath).replace(/^\/+/, '');
 
     try {
-      await repoGit.raw(['sparse-checkout', 'set', normalizedSparsePath]);
+      // Use --no-cone mode to ONLY include the specified path
+      // Cone mode (default) includes root-level files which we don't want
+      await repoGit.raw(['sparse-checkout', 'set', '--no-cone', normalizedSparsePath]);
       log.debug(`Set sparse-checkout path: ${normalizedSparsePath}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -392,7 +436,8 @@ export async function updateSparseCheckout(
 
   try {
     const git = createGit(normalizedPath);
-    await git.raw(['sparse-checkout', 'set', normalizedSparsePath]);
+    // Use --no-cone mode to ONLY include the specified path (no root files)
+    await git.raw(['sparse-checkout', 'set', '--no-cone', normalizedSparsePath]);
     log.debug(`Updated sparse-checkout to: ${normalizedSparsePath}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

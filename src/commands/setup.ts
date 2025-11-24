@@ -14,6 +14,10 @@ import {
   updateLockEntry,
 } from '../core/config.js';
 import {
+  getDefaultRegistry,
+  setDefaultRegistry,
+} from '../core/global-config.js';
+import {
   fetchRegistryWithImports,
   findContextByName,
 } from '../core/registry.js';
@@ -82,9 +86,30 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     }
   }
 
-  // Step 1: Get registry URL
+  // Step 1: Get registry URL (from CLI option > global config > prompt)
   let registryUrl = options.registry;
 
+  if (!registryUrl) {
+    // Check global config / env var
+    const defaultRegistry = await getDefaultRegistry();
+
+    if (defaultRegistry) {
+      log.info(`Using default registry: ${style.url(defaultRegistry)}`);
+      log.dim('(from global config - run `nocaap config registry` to change)');
+      log.newline();
+
+      const useDefault = await confirm({
+        message: 'Use this registry?',
+        default: true,
+      });
+
+      if (useDefault) {
+        registryUrl = defaultRegistry;
+      }
+    }
+  }
+
+  // If still no registry, prompt for it
   if (!registryUrl) {
     registryUrl = await input({
       message: DEFAULT_REGISTRY_PROMPT,
@@ -100,6 +125,18 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
         }
       },
     });
+
+    // Offer to save as default
+    log.newline();
+    const saveAsDefault = await confirm({
+      message: 'Save this as your default registry?',
+      default: true,
+    });
+
+    if (saveAsDefault) {
+      await setDefaultRegistry(registryUrl);
+      log.success('Saved to global config!');
+    }
   }
 
   log.newline();

@@ -8,6 +8,7 @@ import { addCommand } from './commands/add.js';
 import { updateCommand } from './commands/update.js';
 import { listCommand } from './commands/list.js';
 import { removeCommand } from './commands/remove.js';
+import { configCommand } from './commands/config.js';
 import { generateIndexWithProgress } from './core/indexer.js';
 import { log } from './utils/logger.js';
 
@@ -116,6 +117,28 @@ program
   .action(async (alias, options) => {
     try {
       await removeCommand(alias, { force: options.force });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(message);
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// Config Command
+// =============================================================================
+
+program
+  .command('config [key] [value]')
+  .description('Manage global nocaap configuration')
+  .option('-l, --list', 'Show all configuration')
+  .option('--clear', 'Clear the specified config key')
+  .action(async (key, value, options) => {
+    try {
+      await configCommand(key, value, {
+        list: options.list,
+        clear: options.clear,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log.error(message);
