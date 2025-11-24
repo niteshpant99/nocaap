@@ -1,0 +1,26 @@
+{
+  "name": "Test Organization Registry",
+  "contexts": [
+    {
+      "name": "React Documentation",
+      "description": "Official React docs - learning section (public repo)",
+      "repo": "https://github.com/reactjs/react.dev.git",
+      "path": "src/content/learn",
+      "tags": ["frontend", "react", "public"]
+    },
+    {
+      "name": "Node.js Best Practices",
+      "description": "Comprehensive Node.js best practices guide",
+      "repo": "https://github.com/goldbergyoni/nodebestpractices.git",
+      "path": "sections",
+      "tags": ["backend", "nodejs", "public"]
+    },
+    {
+      "name": "is-online",
+      "description": "Check if the internet connection is up (small test repo)",
+      "repo": "https://github.com/sindresorhus/is-online.git",
+      "tags": ["utility", "small", "public"]
+    }
+  ]
+}
+
