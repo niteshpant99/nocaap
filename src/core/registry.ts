@@ -11,6 +11,7 @@ import {
 import { log } from '../utils/logger.js';
 
 const DEFAULT_MAX_DEPTH = 3;
+const DEFAULT_TIMEOUT_MS = 10000; // 10 seconds
 
 // =============================================================================
 // Single Registry Fetch
@@ -25,8 +26,16 @@ export async function fetchRegistry(url: string): Promise<Registry> {
 
   let response: Response;
   try {
-    response = await fetch(url);
+    // Add timeout to prevent hanging on slow/unresponsive servers
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+    response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Registry fetch timed out after ${DEFAULT_TIMEOUT_MS / 1000}s: ${url}`);
+    }
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Failed to fetch registry from ${url}: ${message}`);
   }
@@ -147,6 +156,7 @@ function getContextKey(context: ContextEntry): string {
 /**
  * Merge multiple registries into one, deduplicating contexts by repo+path
  * Later registries take precedence over earlier ones for duplicates
+ * Preserves the name of the first (root) registry
  */
 export function mergeRegistries(registries: Registry[]): Registry {
   const contextMap = new Map<string, ContextEntry>();
@@ -164,6 +174,7 @@ export function mergeRegistries(registries: Registry[]): Registry {
   log.debug(`Merged ${registries.length} registries into ${mergedContexts.length} unique contexts`);
 
   return {
+    name: registries[0]?.name, // Preserve root registry name
     contexts: mergedContexts,
     // Don't include imports in merged result (they've been resolved)
   };
