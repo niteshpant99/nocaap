@@ -176,6 +176,19 @@ async function updatePackage(
       };
     }
 
+    // Check for config drift (sparse path changed)
+    const lockEntry = await getLockEntry(projectRoot, pkg.alias);
+    if (lockEntry && lockEntry.sparsePath !== (pkg.path || '')) {
+      spinner.warn(`${pkg.alias}: Sparse path changed in config`);
+      log.dim(`    Config: ${pkg.path || '(root)'}`);
+      log.dim(`    Locked: ${lockEntry.sparsePath || '(root)'}`);
+      return {
+        alias: pkg.alias,
+        status: 'skipped',
+        error: 'Sparse path changed (run `nocaap remove` then `nocaap add` to re-clone)',
+      };
+    }
+
     // Get current commit
     const oldCommit = await getHeadCommit(packagePath);
 

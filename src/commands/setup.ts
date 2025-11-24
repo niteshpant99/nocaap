@@ -168,11 +168,10 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     message: 'Select contexts to install:',
     choices,
     pageSize: 15,
-    required: true,
   });
 
   if (selectedNames.length === 0) {
-    log.info('No contexts selected. Setup cancelled.');
+    log.warn('No contexts selected. Setup cancelled.');
     return;
   }
 

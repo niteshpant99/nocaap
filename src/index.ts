@@ -7,6 +7,8 @@ import { Command } from 'commander';
 import { setupCommand } from './commands/setup.js';
 import { addCommand } from './commands/add.js';
 import { updateCommand } from './commands/update.js';
+import { listCommand } from './commands/list.js';
+import { removeCommand } from './commands/remove.js';
 import { generateIndexWithProgress } from './core/indexer.js';
 import { log } from './utils/logger.js';
 
@@ -18,7 +20,11 @@ const program = new Command();
 
 program
   .name('nocaap')
-  .description('Normalized Organizational Context-as-a-Package')
+  .description(
+    'Normalized Organizational Context-as-a-Package\n\n' +
+      'Standardize your AI agent context across teams.\n' +
+      'Run `nocaap setup` to get started.'
+  )
   .version('0.1.0');
 
 // =============================================================================
@@ -74,6 +80,43 @@ program
   .action(async (alias, options) => {
     try {
       await updateCommand(alias, { force: options.force });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(message);
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// List Command
+// =============================================================================
+
+program
+  .command('list')
+  .alias('ls')
+  .description('List installed context packages')
+  .action(async () => {
+    try {
+      await listCommand();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(message);
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// Remove Command
+// =============================================================================
+
+program
+  .command('remove <alias>')
+  .alias('rm')
+  .description('Remove a context package')
+  .option('--force', 'Force removal even if dirty')
+  .action(async (alias, options) => {
+    try {
+      await removeCommand(alias, { force: options.force });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log.error(message);
