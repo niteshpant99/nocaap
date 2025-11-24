@@ -8,6 +8,7 @@ import {
   type Config,
   type Lockfile,
   type LockEntry,
+  type PackageEntry,
   safeValidateConfig,
   safeValidateLockfile,
 } from '../schemas/index.js';
@@ -212,4 +213,60 @@ export async function getLockEntry(
 ): Promise<LockEntry | undefined> {
   const lockfile = await readLockfile(projectRoot);
   return lockfile[alias];
+}
+
+// =============================================================================
+// Package Helpers
+// =============================================================================
+
+/**
+ * Add or update a package in the config
+ */
+export async function upsertPackage(
+  projectRoot: string,
+  pkg: PackageEntry
+): Promise<void> {
+  const config = (await readConfig(projectRoot)) ?? { packages: [] };
+
+  const existingIndex = config.packages.findIndex((p) => p.alias === pkg.alias);
+
+  if (existingIndex >= 0) {
+    config.packages[existingIndex] = pkg;
+    log.debug(`Updated package '${pkg.alias}' in config`);
+  } else {
+    config.packages.push(pkg);
+    log.debug(`Added package '${pkg.alias}' to config`);
+  }
+
+  await writeConfig(projectRoot, config);
+}
+
+/**
+ * Remove a package from the config by alias
+ */
+export async function removePackage(projectRoot: string, alias: string): Promise<boolean> {
+  const config = await readConfig(projectRoot);
+  if (!config) return false;
+
+  const initialLength = config.packages.length;
+  config.packages = config.packages.filter((p) => p.alias !== alias);
+
+  if (config.packages.length < initialLength) {
+    await writeConfig(projectRoot, config);
+    log.debug(`Removed package '${alias}' from config`);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Get a package entry from config by alias
+ */
+export async function getPackage(
+  projectRoot: string,
+  alias: string
+): Promise<PackageEntry | undefined> {
+  const config = await readConfig(projectRoot);
+  return config?.packages.find((p) => p.alias === alias);
 }
