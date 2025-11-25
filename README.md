@@ -22,11 +22,60 @@ Your AI coding assistant is only as good as its context.
 
 ## 📦 Installation
 
+### Option 1: Install from GitHub (Recommended)
+
 ```bash
-npm install -g nocaap
-# OR run directly
-npx nocaap setup
+# Install directly from GitHub
+npm install -g git+https://github.com/niteshpant99/nocaap.git
+
+# Or with SSH (if you have SSH keys configured)
+npm install -g git+ssh://git@github.com:niteshpant99/nocaap.git
 ```
+
+### Option 2: Install from Source
+
+```bash
+# Clone the repo
+git clone https://github.com/niteshpant99/nocaap.git
+cd nocaap
+
+# Install dependencies and build
+pnpm install
+pnpm run build
+
+# Link globally (makes 'nocaap' command available)
+npm link
+```
+
+### Option 3: npx (Run without installing)
+
+```bash
+# Run setup directly from GitHub
+npx github:niteshpant99/nocaap setup
+```
+
+> **Coming Soon:** `npm install -g nocaap` (npm package publication in progress)
+
+## 🏗️ Setting Up Your Organization's Context Hub
+
+Want to create your own context registry? Use the **official starter template**:
+
+👉 **[nocaap-context-template](https://github.com/niteshpant99/nocaap-context-template)**
+
+This template includes:
+- 📁 Pre-configured folder structure for organizing contexts
+- 🔄 Scripts to auto-generate `nocaap-registry.json` from your markdown files
+- ⚡ GitHub Actions for automatic registry updates on push
+- 📝 Example contexts to get you started
+
+**Quick Start:**
+1. [Fork the template](https://github.com/niteshpant99/nocaap-context-template/fork)
+2. Add your organization's documentation
+3. Push - the registry auto-updates!
+
+Your team can then point nocaap to your new registry and start using it immediately.
+
+---
 
 ## 🔧 Configuration
 
@@ -69,7 +118,7 @@ nocaap config registry --clear
 The easiest way to get started. Connects to your organization's registry map and lets you interactively select contexts.
 
 ```bash
-npx nocaap setup
+nocaap setup
 ```
 *   Uses your saved registry, or prompts for one
 *   Checks access permissions (HTTP and SSH)
@@ -81,17 +130,17 @@ Add a specific repository or folder directly.
 
 ```bash
 # Add a full repo
-npx nocaap add git@github.com:acme/engineering-standards.git
+nocaap add git@github.com:your-org/engineering-standards.git
 
 # Add a specific folder (Sparse Checkout)
-npx nocaap add git@github.com:acme/monorepo.git --path docs/security --alias security-docs
+nocaap add git@github.com:your-org/monorepo.git --path docs/security --alias security-docs
 ```
 
 ### 3. Update & Sync
 Checks for updates, verifies file integrity, and regenerates the index.
 
 ```bash
-npx nocaap update
+nocaap update
 ```
 *   **Safety:** Checks for local changes ("Dirty State") before overwriting.
 *   **Drift:** Detects if the remote version or configured path has changed.
