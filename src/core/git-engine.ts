@@ -190,6 +190,25 @@ export async function sparseClone(options: CloneOptions): Promise<CloneResult> {
     const sparseFullPath = paths.join(normalizedTarget, normalizedSparsePath);
     if (!(await paths.exists(sparseFullPath))) {
       log.warn(`Sparse path '${sparsePath}' does not exist in the repository`);
+    } else {
+      // Step 3: Flatten the directory structure
+      // Move contents from sparse subdirectory to package root
+      log.debug(`Flattening sparse path: ${sparseFullPath} -> ${normalizedTarget}`);
+
+      const items = await fs.readdir(sparseFullPath);
+      for (const item of items) {
+        const srcPath = paths.join(sparseFullPath, item);
+        const destPath = paths.join(normalizedTarget, item);
+        await fs.move(srcPath, destPath, { overwrite: true });
+      }
+
+      // Remove the now-empty sparse directory chain
+      const topLevelDir = normalizedSparsePath.split('/')[0];
+      if (topLevelDir) {
+        const topLevelPath = paths.join(normalizedTarget, topLevelDir);
+        await fs.remove(topLevelPath);
+        log.debug(`Removed empty sparse directory: ${topLevelPath}`);
+      }
     }
   }
 

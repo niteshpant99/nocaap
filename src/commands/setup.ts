@@ -239,7 +239,7 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     const context = accessibleContexts.find((r) => r.context.name === name)?.context;
     if (!context) continue;
 
-    const alias = generateAlias(context.name);
+    const alias = generateAlias(context);
     const spinner = createSpinner(`Installing ${style.bold(context.name)}...`).start();
 
     try {
@@ -324,10 +324,24 @@ function formatContextChoice(context: ContextEntry): string {
 }
 
 /**
- * Generate a valid alias from a context name
+ * Generate a valid alias from a context entry
+ * Prefers the leaf folder from path, falls back to name
  */
-function generateAlias(name: string): string {
-  return name
+function generateAlias(context: ContextEntry): string {
+  // Prefer leaf folder from path (e.g., "/capabilities" -> "capabilities")
+  if (context.path) {
+    const leafFolder = context.path.split('/').filter(Boolean).pop();
+    if (leafFolder) {
+      return leafFolder
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 50);
+    }
+  }
+
+  // Fallback to name
+  return context.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
     .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
