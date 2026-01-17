@@ -12,6 +12,8 @@ import {
   writeConfig,
   upsertPackage,
   updateLockEntry,
+  updateCursorRules,
+  updateClaudeMd,
 } from '../core/config.js';
 import {
   getDefaultRegistry,
@@ -282,6 +284,45 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     await generateIndexWithProgress(projectRoot);
   }
 
+  // Step 8: Offer IDE integrations
+  if (successCount > 0) {
+    log.newline();
+    log.hr();
+    log.newline();
+    log.info('IDE Integration (optional)');
+    log.newline();
+
+    // Cursor integration
+    const addCursor = await confirm({
+      message: 'Add nocaap reference to Cursor rules?',
+      default: true,
+    });
+
+    if (addCursor) {
+      const updated = await updateCursorRules(projectRoot);
+      if (updated) {
+        log.success('Added nocaap reference to Cursor rules');
+      } else {
+        log.dim('Cursor rules already configured');
+      }
+    }
+
+    // Claude integration
+    const addClaude = await confirm({
+      message: 'Add nocaap reference to CLAUDE.md?',
+      default: true,
+    });
+
+    if (addClaude) {
+      const updated = await updateClaudeMd(projectRoot);
+      if (updated) {
+        log.success('Added nocaap reference to CLAUDE.md');
+      } else {
+        log.dim('CLAUDE.md already configured');
+      }
+    }
+  }
+
   // Summary
   log.newline();
   log.hr();
@@ -292,8 +333,7 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     log.newline();
     log.info('Next steps:');
     log.dim('  1. Review .context/INDEX.md for available documentation');
-    log.dim('  2. Add .context/ to your AI assistant\'s context');
-    log.dim('  3. Run `nocaap update` to pull latest changes');
+    log.dim('  2. Run `nocaap update` to pull latest changes');
   }
 
   if (failCount > 0) {
