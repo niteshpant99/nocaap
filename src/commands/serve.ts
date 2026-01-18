@@ -3,9 +3,7 @@
  * Start the nocaap MCP server
  */
 import { startMcpServer } from '../core/mcp-server.js';
-import { searchIndexExists } from '../core/search-engine.js';
 import * as paths from '../utils/paths.js';
-import { log } from '../utils/logger.js';
 
 // =============================================================================
 // Types
@@ -13,6 +11,7 @@ import { log } from '../utils/logger.js';
 
 export interface ServeOptions {
   printConfig?: boolean;
+  root?: string;
 }
 
 // =============================================================================
@@ -50,7 +49,8 @@ function generateClaudeDesktopConfig(): ClaudeDesktopConfig {
  * Start the MCP server or print Claude Desktop config
  */
 export async function serveCommand(options: ServeOptions = {}): Promise<void> {
-  const projectRoot = process.cwd();
+  // Use --root option if provided, otherwise use current working directory
+  const projectRoot = options.root ?? process.cwd();
 
   // Handle --print-config flag
   if (options.printConfig) {
@@ -67,14 +67,10 @@ export async function serveCommand(options: ServeOptions = {}): Promise<void> {
     );
   }
 
-  // Check if search index exists
-  const hasIndex = await searchIndexExists(projectRoot);
-  if (!hasIndex) {
-    log.warn('Search index not found. Run `nocaap index` for full-text search support.');
-    log.info('Starting MCP server without search capabilities...');
-  }
+  // Note: Don't output anything to stdout - MCP uses stdio for JSON-RPC communication
+  // Any console.log() calls will corrupt the protocol
+  // Warnings can go to stderr if absolutely necessary
 
   // Start the MCP server (blocks until terminated)
-  // Note: We don't use log.* here because stdio is used for MCP communication
   await startMcpServer({ projectRoot });
 }

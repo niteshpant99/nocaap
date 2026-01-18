@@ -116,7 +116,7 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
         limit: z.number().optional().describe('Maximum results (default: 10)'),
       },
     },
-    async ({ query, mode, packages, tags, limit }) => {
+    async ({ query, mode, packages, _tags, limit }) => {
       if (!searchEngine.isInitialized()) {
         return {
           content: [{

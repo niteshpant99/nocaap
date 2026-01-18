@@ -6,12 +6,11 @@ import { confirm } from '@inquirer/prompts';
 import * as paths from '../utils/paths.js';
 import { log, createSpinner } from '../utils/logger.js';
 import {
-  readConfig,
   removePackage as removePackageFromConfig,
   removeLockEntry,
   getPackage,
 } from '../core/config.js';
-import { removePackage as removePackageDir, isDirty, isGitRepo } from '../core/git-engine.js';
+import { isDirty, isGitRepo } from '../core/git-engine.js';
 import { generateIndexWithProgress } from '../core/indexer.js';
 
 // =============================================================================

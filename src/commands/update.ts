@@ -6,7 +6,6 @@ import * as paths from '../utils/paths.js';
 import { log, createSpinner, style } from '../utils/logger.js';
 import {
   readConfig,
-  readLockfile,
   updateLockEntry,
   getLockEntry,
 } from '../core/config.js';
@@ -17,7 +16,7 @@ import {
   isGitRepo,
 } from '../core/git-engine.js';
 import { generateIndexWithProgress } from '../core/indexer.js';
-import type { PackageEntry, LockEntry } from '../schemas/index.js';
+import type { PackageEntry } from '../schemas/index.js';
 
 // =============================================================================
 // Types

@@ -9,9 +9,9 @@ import { persist, restore } from '@orama/plugin-data-persistence';
 import * as paths from '../utils/paths.js';
 import { log } from '../utils/logger.js';
 import type { Chunk } from './chunker.js';
-import { VectorStore, type VectorResult } from './vector-store.js';
+import { VectorStore } from './vector-store.js';
 import { generateQueryEmbedding, type EmbeddingProvider } from './embeddings.js';
-import { reciprocalRankFusion, normalizeScores, type RankedResult, type RRFOptions } from './fusion.js';
+import { reciprocalRankFusion, normalizeScores, type RankedResult } from './fusion.js';
 
 // =============================================================================
 // Constants
@@ -253,7 +253,7 @@ export class SearchEngine {
       // No vector index found
       this.vectorStore = null;
       return false;
-    } catch (error) {
+    } catch {
       log.debug('Vector store not available');
       this.vectorStore = null;
       return false;

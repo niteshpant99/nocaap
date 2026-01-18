@@ -18,10 +18,7 @@ import {
   getDefaultRegistry,
   setDefaultRegistry,
 } from '../core/global-config.js';
-import {
-  fetchRegistryWithImports,
-  findContextByName,
-} from '../core/registry.js';
+import { fetchRegistryWithImports } from '../core/registry.js';
 import { checkAccess, sparseClone } from '../core/git-engine.js';
 import { generateIndexWithProgress } from '../core/indexer.js';
 import type { Registry, ContextEntry } from '../schemas/index.js';

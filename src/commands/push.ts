@@ -6,7 +6,7 @@ import { checkbox } from '@inquirer/prompts';
 import fs from 'fs-extra';
 import * as paths from '../utils/paths.js';
 import { log, createSpinner, style } from '../utils/logger.js';
-import { readConfig, readLockfile, getPackage, getLockEntry } from '../core/config.js';
+import { readConfig, readLockfile } from '../core/config.js';
 import {
   cloneToTemp,
   getRemoteCommitHash,
@@ -62,10 +62,10 @@ function generateBranchName(alias: string): string {
  * Check if a package has local changes by comparing directory contents
  * Since we flatten the sparse checkout, we compare against a fresh clone
  */
-async function hasLocalChanges(
+async function _hasLocalChanges(
   packagePath: string,
-  repoUrl: string,
-  sparsePath?: string
+  _repoUrl: string,
+  _sparsePath?: string
 ): Promise<boolean> {
   // For now, we do a simple check: if the package directory exists and has files
   // A more sophisticated check would compare file hashes

@@ -217,12 +217,15 @@ program
   .command('serve')
   .description('Start the MCP server for AI agent access')
   .option('--print-config', 'Print Claude Desktop configuration JSON')
+  .option('--root <path>', 'Project root directory (default: current directory)')
   .action(async (options) => {
     try {
-      await serveCommand({ printConfig: options.printConfig });
+      await serveCommand({ printConfig: options.printConfig, root: options.root });
     } catch (error) {
+      // IMPORTANT: Use stderr for errors in serve command
+      // MCP uses stdout for JSON-RPC, so any stdout output corrupts the protocol
       const message = error instanceof Error ? error.message : String(error);
-      log.error(message);
+      console.error(`Error: ${message}`);
       process.exit(1);
     }
   });
