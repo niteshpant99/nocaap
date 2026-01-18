@@ -4,6 +4,7 @@
  */
 import simpleGit, { type SimpleGit, type SimpleGitOptions } from 'simple-git';
 import fs from 'fs-extra';
+import os from 'os';
 import * as paths from '../utils/paths.js';
 import { log } from '../utils/logger.js';
 
@@ -461,5 +462,176 @@ export async function updateSparseCheckout(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Failed to update sparse-checkout: ${message}`);
+  }
+}
+
+// =============================================================================
+// Push Support Utilities
+// =============================================================================
+
+/**
+ * Get the latest commit hash from a remote repository
+ * Uses `git ls-remote` to query without cloning
+ */
+export async function getRemoteCommitHash(
+  repoUrl: string,
+  branch?: string
+): Promise<string> {
+  log.debug(`Getting remote commit hash for ${repoUrl}`);
+
+  try {
+    const git = createGit();
+    const ref = branch ? `refs/heads/${branch}` : 'HEAD';
+    const result = await git.listRemote([repoUrl, ref]);
+
+    // Parse the commit hash from output like "abc123\trefs/heads/main"
+    const match = result.match(/^([a-f0-9]+)/);
+    if (!match || !match[1]) {
+      throw new Error('Could not parse commit hash from remote');
+    }
+
+    const commitHash = match[1];
+    log.debug(`Remote commit hash: ${commitHash}`);
+    return commitHash;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to get remote commit hash: ${message}`);
+  }
+}
+
+export interface TempCloneResult {
+  /** Path to the temporary clone directory */
+  tempDir: string;
+  /** Cleanup function to remove the temp directory */
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Clone a repository to a temporary directory
+ * Returns path and cleanup function
+ *
+ * Uses shallow clone (--depth 1) for speed
+ */
+export async function cloneToTemp(
+  repoUrl: string,
+  branch?: string
+): Promise<TempCloneResult> {
+  // Create unique temp directory
+  const tempBase = paths.join(os.tmpdir(), 'nocaap-push');
+  await paths.ensureDir(tempBase);
+  const tempDir = await fs.mkdtemp(paths.join(tempBase, 'repo-'));
+
+  log.debug(`Cloning ${repoUrl} to temp directory: ${tempDir}`);
+
+  try {
+    const git = createGit();
+
+    // Build clone arguments
+    const cloneArgs = ['--depth', '1'];
+    if (branch) {
+      cloneArgs.push('--branch', branch);
+    }
+
+    await git.clone(repoUrl, tempDir, cloneArgs);
+
+    log.debug(`Temp clone complete: ${tempDir}`);
+
+    // Return path and cleanup function
+    return {
+      tempDir,
+      cleanup: async () => {
+        log.debug(`Cleaning up temp directory: ${tempDir}`);
+        await fs.remove(tempDir);
+      },
+    };
+  } catch (error) {
+    // Clean up on failure
+    await fs.remove(tempDir);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to clone to temp directory: ${message}`);
+  }
+}
+
+/**
+ * Create a new branch in a repository
+ */
+export async function createBranch(repoPath: string, branchName: string): Promise<void> {
+  const normalizedPath = paths.toUnix(repoPath);
+
+  if (!(await isGitRepo(normalizedPath))) {
+    throw new Error(`Not a git repository: ${normalizedPath}`);
+  }
+
+  try {
+    const git = createGit(normalizedPath);
+    await git.checkoutLocalBranch(branchName);
+    log.debug(`Created and checked out branch: ${branchName}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to create branch: ${message}`);
+  }
+}
+
+/**
+ * Commit all changes in a repository
+ */
+export async function commitAll(repoPath: string, message: string): Promise<string> {
+  const normalizedPath = paths.toUnix(repoPath);
+
+  if (!(await isGitRepo(normalizedPath))) {
+    throw new Error(`Not a git repository: ${normalizedPath}`);
+  }
+
+  try {
+    const git = createGit(normalizedPath);
+
+    // Stage all changes
+    await git.add('-A');
+
+    // Commit
+    const result = await git.commit(message);
+
+    log.debug(`Committed changes: ${result.commit}`);
+    return result.commit;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to commit: ${message}`);
+  }
+}
+
+/**
+ * Push a branch to origin
+ * @throws Error if push fails (e.g., no write access)
+ */
+export async function pushBranch(
+  repoPath: string,
+  branchName: string
+): Promise<void> {
+  const normalizedPath = paths.toUnix(repoPath);
+
+  if (!(await isGitRepo(normalizedPath))) {
+    throw new Error(`Not a git repository: ${normalizedPath}`);
+  }
+
+  try {
+    const git = createGit(normalizedPath);
+    await git.push('origin', branchName, ['--set-upstream']);
+    log.debug(`Pushed branch ${branchName} to origin`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+
+    // Check for permission denied
+    if (
+      message.includes('Permission denied') ||
+      message.includes('403') ||
+      message.includes('authentication failed')
+    ) {
+      throw new Error(
+        `Permission denied. You don't have write access to this repository.\n` +
+          'Consider forking the repository and pushing to your fork.'
+      );
+    }
+
+    throw new Error(`Failed to push: ${message}`);
   }
 }

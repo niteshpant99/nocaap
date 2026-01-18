@@ -9,6 +9,7 @@ import { updateCommand } from './commands/update.js';
 import { listCommand } from './commands/list.js';
 import { removeCommand } from './commands/remove.js';
 import { configCommand } from './commands/config.js';
+import { pushCommand } from './commands/push.js';
 import { generateIndexWithProgress } from './core/indexer.js';
 import { log } from './utils/logger.js';
 
@@ -138,6 +139,28 @@ program
       await configCommand(key, value, {
         list: options.list,
         clear: options.clear,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(message);
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// Push Command
+// =============================================================================
+
+program
+  .command('push [alias]')
+  .description('Push local changes to upstream as a PR')
+  .option('-m, --message <message>', 'Commit message')
+  .option('-a, --all', 'Push all packages with changes')
+  .action(async (alias, options) => {
+    try {
+      await pushCommand(alias, {
+        message: options.message,
+        all: options.all,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
