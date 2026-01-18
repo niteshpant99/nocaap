@@ -21,6 +21,7 @@ import { log } from '../utils/logger.js';
 /**
  * Initialize the .context directory structure
  * Creates: .context/, .context/packages/, context.config.json, context.lock
+ * Also updates .gitignore to exclude packages/
  */
 export async function initContextDir(projectRoot: string): Promise<void> {
   const contextDir = paths.getContextDir(projectRoot);
@@ -47,6 +48,9 @@ export async function initContextDir(projectRoot: string): Promise<void> {
     await fs.writeJson(lockfilePath, defaultLockfile, { spaces: 2 });
     log.debug(`Created default lockfile at ${lockfilePath}`);
   }
+
+  // Auto-update .gitignore to exclude packages/
+  await updateGitignore(projectRoot);
 }
 
 // =============================================================================
@@ -269,4 +273,128 @@ export async function getPackage(
 ): Promise<PackageEntry | undefined> {
   const config = await readConfig(projectRoot);
   return config?.packages.find((p) => p.alias === alias);
+}
+
+// =============================================================================
+// Auto-Integration Helpers
+// =============================================================================
+
+const GITIGNORE_ENTRY = '.context/packages/';
+const GITIGNORE_COMMENT = '# nocaap packages (auto-generated)';
+
+/**
+ * Ensure .context/packages/ is in .gitignore
+ */
+export async function updateGitignore(projectRoot: string): Promise<boolean> {
+  const gitignorePath = paths.join(projectRoot, '.gitignore');
+
+  try {
+    if (await paths.exists(gitignorePath)) {
+      const content = await fs.readFile(gitignorePath, 'utf-8');
+      if (content.includes(GITIGNORE_ENTRY)) {
+        log.debug('.gitignore already contains nocaap entry');
+        return false; // Already exists
+      }
+      // Append to existing file
+      const newContent = content.endsWith('\n') ? content : content + '\n';
+      await fs.writeFile(gitignorePath, `${newContent}\n${GITIGNORE_COMMENT}\n${GITIGNORE_ENTRY}\n`);
+    } else {
+      // Create new .gitignore
+      await fs.writeFile(gitignorePath, `${GITIGNORE_COMMENT}\n${GITIGNORE_ENTRY}\n`);
+    }
+    log.debug('Updated .gitignore with nocaap entry');
+    return true;
+  } catch (error) {
+    log.debug(`Failed to update .gitignore: ${error}`);
+    return false;
+  }
+}
+
+const CURSOR_RULES_CONTENT = `# nocaap Context
+This project uses nocaap for organizational context.
+Read .context/INDEX.md for available documentation.
+`;
+
+/**
+ * Add nocaap instruction to Cursor rules
+ */
+export async function updateCursorRules(projectRoot: string): Promise<boolean> {
+  // Try .cursor/rules first (newer format), then .cursorrules
+  const cursorDir = paths.join(projectRoot, '.cursor');
+  const cursorRulesPath = paths.join(cursorDir, 'rules');
+  const legacyCursorRulesPath = paths.join(projectRoot, '.cursorrules');
+
+  try {
+    // Check if already configured
+    for (const rulePath of [cursorRulesPath, legacyCursorRulesPath]) {
+      if (await paths.exists(rulePath)) {
+        const content = await fs.readFile(rulePath, 'utf-8');
+        if (content.includes('.context/INDEX.md')) {
+          log.debug('Cursor rules already contain nocaap reference');
+          return false;
+        }
+      }
+    }
+
+    // Prefer .cursor/rules directory format
+    if (await paths.exists(cursorDir)) {
+      if (await paths.exists(cursorRulesPath)) {
+        const content = await fs.readFile(cursorRulesPath, 'utf-8');
+        const newContent = content.endsWith('\n') ? content : content + '\n';
+        await fs.writeFile(cursorRulesPath, `${newContent}\n${CURSOR_RULES_CONTENT}`);
+      } else {
+        await fs.writeFile(cursorRulesPath, CURSOR_RULES_CONTENT);
+      }
+      log.debug('Updated .cursor/rules with nocaap reference');
+      return true;
+    }
+
+    // Fall back to .cursorrules if .cursor/ doesn't exist
+    if (await paths.exists(legacyCursorRulesPath)) {
+      const content = await fs.readFile(legacyCursorRulesPath, 'utf-8');
+      const newContent = content.endsWith('\n') ? content : content + '\n';
+      await fs.writeFile(legacyCursorRulesPath, `${newContent}\n${CURSOR_RULES_CONTENT}`);
+    } else {
+      await fs.writeFile(legacyCursorRulesPath, CURSOR_RULES_CONTENT);
+    }
+    log.debug('Updated .cursorrules with nocaap reference');
+    return true;
+  } catch (error) {
+    log.debug(`Failed to update Cursor rules: ${error}`);
+    return false;
+  }
+}
+
+const CLAUDE_MD_CONTENT = `
+## Project Context
+This project uses nocaap for organizational context.
+Read \`.context/INDEX.md\` for standards, guidelines, and documentation.
+`;
+
+/**
+ * Add nocaap instruction to CLAUDE.md
+ */
+export async function updateClaudeMd(projectRoot: string): Promise<boolean> {
+  const claudeMdPath = paths.join(projectRoot, 'CLAUDE.md');
+
+  try {
+    if (await paths.exists(claudeMdPath)) {
+      const content = await fs.readFile(claudeMdPath, 'utf-8');
+      if (content.includes('.context/INDEX.md')) {
+        log.debug('CLAUDE.md already contains nocaap reference');
+        return false;
+      }
+      // Append to existing file
+      const newContent = content.endsWith('\n') ? content : content + '\n';
+      await fs.writeFile(claudeMdPath, `${newContent}${CLAUDE_MD_CONTENT}`);
+    } else {
+      // Create new CLAUDE.md
+      await fs.writeFile(claudeMdPath, `# CLAUDE.md${CLAUDE_MD_CONTENT}`);
+    }
+    log.debug('Updated CLAUDE.md with nocaap reference');
+    return true;
+  } catch (error) {
+    log.debug(`Failed to update CLAUDE.md: ${error}`);
+    return false;
+  }
 }

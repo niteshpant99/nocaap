@@ -29,3 +29,7 @@ coverage/
 
 # Repomix
 repomix-output.txt
+
+# Claude
+.claude/
+.cursor/
