@@ -48,6 +48,26 @@ function extractAliasFromUrl(url: string): string {
 }
 
 /**
+ * Generate alias from path or URL
+ * Prefers leaf folder from path, falls back to URL extraction
+ */
+function deriveAlias(url: string, path?: string): string {
+  // Prefer leaf folder from path (e.g., "/capabilities" -> "capabilities")
+  if (path) {
+    const leafFolder = path.split('/').filter(Boolean).pop();
+    if (leafFolder) {
+      return leafFolder
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 50);
+    }
+  }
+  // Fallback to URL extraction
+  return extractAliasFromUrl(url);
+}
+
+/**
  * Validate alias format
  */
 function validateAlias(alias: string): boolean {
@@ -76,8 +96,8 @@ export async function addCommand(
 ): Promise<void> {
   const projectRoot = process.cwd();
 
-  // Derive alias from URL if not provided
-  const alias = options.alias || extractAliasFromUrl(repo);
+  // Derive alias from path (preferred) or URL if not provided
+  const alias = options.alias || deriveAlias(repo, options.path);
 
   log.title('Adding context package');
   log.info(`Repository: ${repo}`);
