@@ -53,7 +53,9 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
     'nocaap://index',
     {
       title: 'Context Index',
-      description: 'AI-optimized index of all installed context packages',
+      description:
+        'Complete index of organizational knowledge with document summaries. ' +
+        'Includes team directory, product specs, engineering docs, and company strategy.',
       mimeType: 'text/markdown',
     },
     async (uri) => {
@@ -74,7 +76,7 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
     'nocaap://manifest',
     {
       title: 'Package Manifest',
-      description: 'Metadata about installed context packages',
+      description: 'Configuration showing installed knowledge packages and their sources.',
       mimeType: 'application/json',
     },
     async (uri) => {
@@ -104,9 +106,10 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
     {
       title: 'Search Context',
       description:
-        'Search across all context packages. ' +
-        'Modes: fulltext (BM25), semantic (vector similarity), hybrid (combined with RRF). ' +
-        'Hybrid mode requires `nocaap index --semantic` to be run first.',
+        'Search organizational knowledge including team directory, product documentation, ' +
+        'engineering guidelines, company strategy, and project context. ' +
+        'Use for questions about people, products, processes, or internal information. ' +
+        'Returns ranked results with snippets - use get_document for full content.',
       inputSchema: {
         query: z.string().describe('Search query'),
         mode: z.enum(['fulltext', 'semantic', 'hybrid']).optional()
@@ -116,7 +119,8 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
         limit: z.number().optional().describe('Maximum results (default: 10)'),
       },
     },
-    async ({ query, mode, packages, _tags, limit }) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async ({ query, mode, packages, tags, limit }) => {
       if (!searchEngine.isInitialized()) {
         return {
           content: [{
@@ -175,7 +179,10 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
     'get_document',
     {
       title: 'Get Document',
-      description: 'Retrieve the full content of a document by path',
+      description:
+        'Retrieve full documentation by path (from search results). ' +
+        'Use after searching to get complete details about team members, products, ' +
+        'engineering decisions, or any organizational knowledge.',
       inputSchema: {
         path: z.string().describe('Relative path to document (from search results)'),
       },
@@ -219,7 +226,10 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
     'get_section',
     {
       title: 'Get Section',
-      description: 'Retrieve a specific section from a document by heading',
+      description:
+        'Retrieve a specific section from a document by heading. ' +
+        'Useful for extracting targeted information like "Key Accomplishments" or ' +
+        '"Technical Architecture" without loading the entire document.',
       inputSchema: {
         path: z.string().describe('Relative path to document'),
         heading: z.string().describe('The heading text to find'),
@@ -273,7 +283,10 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
     'list_contexts',
     {
       title: 'List Contexts',
-      description: 'List all installed context packages',
+      description:
+        'List available knowledge domains and packages. ' +
+        'Shows what organizational context is installed (team info, products, engineering docs, etc.). ' +
+        'Use to discover what information is available before searching.',
       inputSchema: {
         tags: z.array(z.string()).optional().describe('Filter by tags (not yet implemented)'),
       },
@@ -301,6 +314,36 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
         content: [{
           type: 'text',
           text: JSON.stringify(packages, null, 2),
+        }],
+      };
+    }
+  );
+
+  // Get overview tool - returns the full INDEX.md for context discovery
+  server.registerTool(
+    'get_overview',
+    {
+      title: 'Get Context Overview',
+      description:
+        'Get a structured overview of all available organizational knowledge. ' +
+        'Returns package names, document titles, and content summaries. ' +
+        'RECOMMENDED: Call this first to understand what context is available before searching.',
+      inputSchema: {},
+    },
+    async () => {
+      const indexContent = await readIndex(projectRoot);
+      if (!indexContent) {
+        return {
+          content: [{
+            type: 'text',
+            text: 'No context index available. Run `nocaap index` to generate.',
+          }],
+        };
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: indexContent,
         }],
       };
     }
