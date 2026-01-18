@@ -11,7 +11,13 @@
     "dev": "tsup --watch",
     "start": "node dist/index.js",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:eval": "tsx tests/eval/run-eval.ts --fixtures",
+    "test:eval:local": "tsx tests/eval/run-eval.ts",
+    "test:eval:core": "tsx tests/eval/run-eval.ts --fixtures --core",
+    "test:eval:baseline": "tsx tests/eval/run-eval.ts --fixtures --record-baseline",
+    "test:eval:compare": "tsx tests/eval/run-eval.ts --fixtures --compare-baseline",
+    "test:query": "tsx test-debug.ts"
   },
   "keywords": [
     "ai",

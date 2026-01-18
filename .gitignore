@@ -24,6 +24,9 @@ npm-debug.log*
 # Test artifacts
 coverage/
 
+# Local/proprietary testing (not committed)
+tests/local/
+
 # nocaap local testing (don't commit test context)
 .context/
 
