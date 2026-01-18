@@ -211,18 +211,22 @@ export class SearchEngine {
     if (!this.projectRoot) return false;
 
     try {
-      this.vectorStore = new VectorStore(this.projectRoot);
-      const initialized = await this.vectorStore.initialize();
+      const store = new VectorStore(this.projectRoot);
+      const initialized = await store.initialize();
 
       if (initialized) {
-        const metadata = await this.vectorStore.getMetadata();
+        this.vectorStore = store;
+        const metadata = await store.getMetadata();
         if (metadata) {
           this.embeddingProvider = metadata.embedding.provider;
           log.debug(`Loaded vector store (${metadata.embedding.model})`);
         }
+        return true;
       }
 
-      return initialized;
+      // No vector index found
+      this.vectorStore = null;
+      return false;
     } catch (error) {
       log.debug('Vector store not available');
       this.vectorStore = null;
