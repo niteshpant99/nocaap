@@ -6,6 +6,15 @@ import fs from 'fs-extra';
 import os from 'os';
 import * as paths from '../utils/paths.js';
 import { log } from '../utils/logger.js';
+import {
+  type GlobalConfig,
+  type PushSettings,
+  type EmbeddingSettings,
+  safeValidateGlobalConfig,
+} from '../schemas/index.js';
+
+// Re-export the type for backward compatibility
+export type { GlobalConfig };
 
 // =============================================================================
 // Constants
@@ -13,17 +22,6 @@ import { log } from '../utils/logger.js';
 
 const NOCAAP_DIR = '.nocaap';
 const CONFIG_FILE = 'config.json';
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface GlobalConfig {
-  /** Default registry URL for `nocaap setup` */
-  defaultRegistry?: string;
-  /** Last updated timestamp */
-  updatedAt?: string;
-}
 
 // =============================================================================
 // Path Helpers
@@ -61,8 +59,15 @@ export async function getGlobalConfig(): Promise<GlobalConfig> {
 
   try {
     const data = await fs.readJson(configPath);
+    const result = safeValidateGlobalConfig(data);
+
+    if (!result.success) {
+      log.debug(`Invalid global config, using defaults: ${result.error.message}`);
+      return {};
+    }
+
     log.debug(`Read global config from ${configPath}`);
-    return data as GlobalConfig;
+    return result.data;
   } catch (error) {
     log.debug(`Failed to read global config: ${error}`);
     return {};
@@ -133,5 +138,49 @@ export async function clearDefaultRegistry(): Promise<void> {
 export async function hasDefaultRegistry(): Promise<boolean> {
   const registry = await getDefaultRegistry();
   return !!registry;
+}
+
+// =============================================================================
+// Push Settings Helpers
+// =============================================================================
+
+/**
+ * Get push settings from global config
+ */
+export async function getGlobalPushSettings(): Promise<PushSettings | undefined> {
+  const config = await getGlobalConfig();
+  return config.push;
+}
+
+/**
+ * Set push settings in global config
+ */
+export async function setGlobalPushSettings(settings: PushSettings): Promise<void> {
+  const config = await getGlobalConfig();
+  config.push = settings;
+  await setGlobalConfig(config);
+  log.debug('Updated global push settings');
+}
+
+// =============================================================================
+// Embedding Settings Helpers
+// =============================================================================
+
+/**
+ * Get embedding settings from global config
+ */
+export async function getGlobalEmbeddingSettings(): Promise<EmbeddingSettings | undefined> {
+  const config = await getGlobalConfig();
+  return config.embedding;
+}
+
+/**
+ * Set embedding settings in global config
+ */
+export async function setGlobalEmbeddingSettings(settings: EmbeddingSettings): Promise<void> {
+  const config = await getGlobalConfig();
+  config.embedding = settings;
+  await setGlobalConfig(config);
+  log.debug('Updated global embedding settings');
 }
 

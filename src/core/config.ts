@@ -9,9 +9,15 @@ import {
   type Lockfile,
   type LockEntry,
   type PackageEntry,
+  type SearchSettings,
+  type PushSettings,
+  type IndexSettings,
   safeValidateConfig,
   safeValidateLockfile,
 } from '../schemas/index.js';
+
+// Re-export settings types for convenience
+export type { SearchSettings, PushSettings, IndexSettings };
 import { log } from '../utils/logger.js';
 
 // =============================================================================
@@ -342,4 +348,71 @@ export async function updateClaudeMd(projectRoot: string): Promise<boolean> {
     log.debug(`Failed to update CLAUDE.md: ${error}`);
     return false;
   }
+}
+
+// =============================================================================
+// Project Settings Helpers
+// =============================================================================
+
+/**
+ * Get search settings from project config
+ */
+export async function getSearchSettings(projectRoot: string): Promise<SearchSettings | undefined> {
+  const config = await readConfig(projectRoot);
+  return config?.search;
+}
+
+/**
+ * Set search settings in project config
+ */
+export async function setSearchSettings(
+  projectRoot: string,
+  settings: SearchSettings
+): Promise<void> {
+  const config = (await readConfig(projectRoot)) ?? { packages: [] };
+  config.search = settings;
+  await writeConfig(projectRoot, config);
+  log.debug('Updated project search settings');
+}
+
+/**
+ * Get push settings from project config
+ */
+export async function getPushSettings(projectRoot: string): Promise<PushSettings | undefined> {
+  const config = await readConfig(projectRoot);
+  return config?.push;
+}
+
+/**
+ * Set push settings in project config
+ */
+export async function setPushSettings(
+  projectRoot: string,
+  settings: PushSettings
+): Promise<void> {
+  const config = (await readConfig(projectRoot)) ?? { packages: [] };
+  config.push = settings;
+  await writeConfig(projectRoot, config);
+  log.debug('Updated project push settings');
+}
+
+/**
+ * Get index settings from project config
+ */
+export async function getIndexSettings(projectRoot: string): Promise<IndexSettings | undefined> {
+  const config = await readConfig(projectRoot);
+  return config?.index;
+}
+
+/**
+ * Set index settings in project config
+ */
+export async function setIndexSettings(
+  projectRoot: string,
+  settings: IndexSettings
+): Promise<void> {
+  const config = (await readConfig(projectRoot)) ?? { packages: [] };
+  config.index = settings;
+  await writeConfig(projectRoot, config);
+  log.debug('Updated project index settings');
 }
