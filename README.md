@@ -22,17 +22,12 @@ Your AI coding assistant is only as good as its context.
 
 ## 📦 Installation
 
-### Option 1: Install from GitHub (Recommended)
-
 ```bash
-# Install directly from GitHub
-npm install -g git+https://github.com/niteshpant99/nocaap.git
-
-# Or with SSH (if you have SSH keys configured)
-npm install -g git+ssh://git@github.com:niteshpant99/nocaap.git
+# Install from npm (recommended)
+npm install -g nocaap
 ```
 
-### Option 2: Install from Source
+### Alternative: Install from Source
 
 ```bash
 # Clone the repo
@@ -43,18 +38,9 @@ cd nocaap
 pnpm install
 pnpm run build
 
-# Link globally (makes 'nocaap' command available)
+# Link globally
 npm link
 ```
-
-### Option 3: npx (Run without installing)
-
-```bash
-# Run setup directly from GitHub
-npx github:niteshpant99/nocaap setup
-```
-
-> **Coming Soon:** `npm install -g nocaap` (npm package publication in progress)
 
 ## 🏗️ Setting Up Your Organization's Context Hub
 
@@ -145,7 +131,30 @@ nocaap update
 *   **Safety:** Checks for local changes ("Dirty State") before overwriting.
 *   **Drift:** Detects if the remote version or configured path has changed.
 
-### 4. Other Commands
+### 4. Push Changes Upstream
+
+Push local context changes back to the source repository as a PR.
+
+```bash
+# Interactive - select packages to push
+nocaap push
+
+# Push specific package
+nocaap push engineering
+
+# Push all changed packages
+nocaap push --all
+
+# With custom commit message
+nocaap push engineering -m "Update API documentation"
+```
+
+**Features:**
+- Creates branch: `nocaap/{alias}-{YYYYMMDD}`
+- Auto-creates PR via gh CLI or GitHub API
+- Detects upstream divergence (requires `nocaap update` first)
+
+### 5. Other Commands
 
 ```bash
 # List installed packages
@@ -157,6 +166,19 @@ nocaap remove <alias>
 # Regenerate INDEX.md
 nocaap generate
 ```
+
+## 📋 Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `nocaap setup` | Interactive setup wizard |
+| `nocaap add <repo>` | Add a context package |
+| `nocaap update [alias]` | Update packages (or all if no alias) |
+| `nocaap list` | List installed packages |
+| `nocaap remove <alias>` | Remove a package |
+| `nocaap push [alias]` | Push changes upstream as PR |
+| `nocaap generate` | Regenerate INDEX.md |
+| `nocaap config [key] [value]` | Manage configuration |
 
 ## 📂 Directory Structure
 

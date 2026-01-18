@@ -4,7 +4,7 @@
   "description": "Normalized Organizational Context-as-a-Package. Standardize your AI agent context.",
   "type": "module",
   "bin": {
-    "nocaap": "./dist/index.js"
+    "nocaap": "dist/index.js"
   },
   "scripts": {
     "build": "tsup",

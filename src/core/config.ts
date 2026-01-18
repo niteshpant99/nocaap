@@ -280,7 +280,7 @@ export async function getPackage(
 // =============================================================================
 
 const GITIGNORE_ENTRY = '.context/packages/';
-const GITIGNORE_COMMENT = '# nocaap packages (auto-generated)';
+const GITIGNORE_COMMENT = '# nocaap packages';
 
 /**
  * Ensure .context/packages/ is in .gitignore
@@ -306,61 +306,6 @@ export async function updateGitignore(projectRoot: string): Promise<boolean> {
     return true;
   } catch (error) {
     log.debug(`Failed to update .gitignore: ${error}`);
-    return false;
-  }
-}
-
-const CURSOR_RULES_CONTENT = `# nocaap Context
-This project uses nocaap for organizational context.
-Read .context/INDEX.md for available documentation.
-`;
-
-/**
- * Add nocaap instruction to Cursor rules
- */
-export async function updateCursorRules(projectRoot: string): Promise<boolean> {
-  // Try .cursor/rules first (newer format), then .cursorrules
-  const cursorDir = paths.join(projectRoot, '.cursor');
-  const cursorRulesPath = paths.join(cursorDir, 'rules');
-  const legacyCursorRulesPath = paths.join(projectRoot, '.cursorrules');
-
-  try {
-    // Check if already configured
-    for (const rulePath of [cursorRulesPath, legacyCursorRulesPath]) {
-      if (await paths.exists(rulePath)) {
-        const content = await fs.readFile(rulePath, 'utf-8');
-        if (content.includes('.context/INDEX.md')) {
-          log.debug('Cursor rules already contain nocaap reference');
-          return false;
-        }
-      }
-    }
-
-    // Prefer .cursor/rules directory format
-    if (await paths.exists(cursorDir)) {
-      if (await paths.exists(cursorRulesPath)) {
-        const content = await fs.readFile(cursorRulesPath, 'utf-8');
-        const newContent = content.endsWith('\n') ? content : content + '\n';
-        await fs.writeFile(cursorRulesPath, `${newContent}\n${CURSOR_RULES_CONTENT}`);
-      } else {
-        await fs.writeFile(cursorRulesPath, CURSOR_RULES_CONTENT);
-      }
-      log.debug('Updated .cursor/rules with nocaap reference');
-      return true;
-    }
-
-    // Fall back to .cursorrules if .cursor/ doesn't exist
-    if (await paths.exists(legacyCursorRulesPath)) {
-      const content = await fs.readFile(legacyCursorRulesPath, 'utf-8');
-      const newContent = content.endsWith('\n') ? content : content + '\n';
-      await fs.writeFile(legacyCursorRulesPath, `${newContent}\n${CURSOR_RULES_CONTENT}`);
-    } else {
-      await fs.writeFile(legacyCursorRulesPath, CURSOR_RULES_CONTENT);
-    }
-    log.debug('Updated .cursorrules with nocaap reference');
-    return true;
-  } catch (error) {
-    log.debug(`Failed to update Cursor rules: ${error}`);
     return false;
   }
 }

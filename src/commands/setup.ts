@@ -12,7 +12,6 @@ import {
   writeConfig,
   upsertPackage,
   updateLockEntry,
-  updateCursorRules,
   updateClaudeMd,
 } from '../core/config.js';
 import {
@@ -284,30 +283,12 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     await generateIndexWithProgress(projectRoot);
   }
 
-  // Step 8: Offer IDE integrations
+  // Step 8: Offer CLAUDE.md integration
   if (successCount > 0) {
     log.newline();
     log.hr();
     log.newline();
-    log.info('IDE Integration (optional)');
-    log.newline();
 
-    // Cursor integration
-    const addCursor = await confirm({
-      message: 'Add nocaap reference to Cursor rules?',
-      default: true,
-    });
-
-    if (addCursor) {
-      const updated = await updateCursorRules(projectRoot);
-      if (updated) {
-        log.success('Added nocaap reference to Cursor rules');
-      } else {
-        log.dim('Cursor rules already configured');
-      }
-    }
-
-    // Claude integration
     const addClaude = await confirm({
       message: 'Add nocaap reference to CLAUDE.md?',
       default: true,
