@@ -25,7 +25,7 @@ npm-debug.log*
 coverage/
 
 # nocaap local testing (don't commit test context)
-.context/packages/
+.context/
 
 # Repomix
 repomix-output.txt

@@ -2,6 +2,9 @@
  * src/index.ts
  * nocaap CLI entry point
  */
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { Command } from 'commander';
 import { setupCommand } from './commands/setup.js';
 import { addCommand } from './commands/add.js';
@@ -12,6 +15,11 @@ import { configCommand } from './commands/config.js';
 import { pushCommand } from './commands/push.js';
 import { generateIndexWithProgress } from './core/indexer.js';
 import { log } from './utils/logger.js';
+
+// Read version from package.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
 
 // =============================================================================
 // CLI Setup
@@ -26,7 +34,7 @@ program
       'Standardize your AI agent context across teams.\n' +
       'Run `nocaap setup` to get started.'
   )
-  .version('0.1.0');
+  .version(pkg.version);
 
 // =============================================================================
 // Setup Command
