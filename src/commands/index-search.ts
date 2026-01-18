@@ -1,10 +1,18 @@
 /**
  * src/commands/index-search.ts
  * Build the search index from markdown files in context packages
+ * Supports both fulltext (Orama/BM25) and semantic (vector) search
  */
 import { readConfig } from '../core/config.js';
 import { chunkPackage } from '../core/chunker.js';
 import { SearchEngine, getSearchIndexPath } from '../core/search-engine.js';
+import { VectorStore, getVectorStorePath } from '../core/vector-store.js';
+import {
+  detectProvider,
+  generateEmbeddings,
+  getProviderConfig,
+  type EmbeddingProvider,
+} from '../core/embeddings.js';
 import * as paths from '../utils/paths.js';
 import { log, withSpinner } from '../utils/logger.js';
 import type { Chunk } from '../core/chunker.js';
@@ -13,11 +21,19 @@ import type { Chunk } from '../core/chunker.js';
 // Types
 // =============================================================================
 
+export interface IndexSearchOptions {
+  semantic?: boolean;
+  provider?: EmbeddingProvider;
+}
+
 export interface IndexSearchResult {
   chunkCount: number;
   fileCount: number;
   packages: string[];
   indexPath: string;
+  vectorIndexPath?: string;
+  embeddingProvider?: string;
+  embeddingModel?: string;
 }
 
 // =============================================================================
@@ -27,7 +43,10 @@ export interface IndexSearchResult {
 /**
  * Build the search index from all installed packages
  */
-export async function indexSearchCommand(): Promise<IndexSearchResult> {
+export async function indexSearchCommand(
+  options: IndexSearchOptions = {}
+): Promise<IndexSearchResult> {
+  const { semantic = false, provider = 'auto' } = options;
   const projectRoot = process.cwd();
   const contextDir = paths.getContextDir(projectRoot);
 
@@ -83,28 +102,104 @@ export async function indexSearchCommand(): Promise<IndexSearchResult> {
     throw new Error('No content to index. Check your package directories.');
   }
 
-  // Create and save the search index
+  // Create and save the fulltext search index
   const searchEngine = new SearchEngine();
 
   await withSpinner(
-    'Building search index...',
+    'Building fulltext index...',
     async () => {
       await searchEngine.createIndex(allChunks);
       await searchEngine.saveIndex(projectRoot);
     },
-    { successText: 'Search index built' }
+    { successText: 'Fulltext index built' }
   );
 
   const indexPath = getSearchIndexPath(projectRoot);
-
-  log.success(
-    `Indexed ${allChunks.length} chunks from ${totalFiles} files across ${indexedPackages.length} package(s)`
-  );
-
-  return {
+  const result: IndexSearchResult = {
     chunkCount: allChunks.length,
     fileCount: totalFiles,
     packages: indexedPackages,
     indexPath,
   };
+
+  // Build semantic/vector index if requested
+  if (semantic) {
+    result.vectorIndexPath = getVectorStorePath(projectRoot);
+    await buildVectorIndex(allChunks, projectRoot, provider, result);
+  }
+
+  log.success(
+    `Indexed ${allChunks.length} chunks from ${totalFiles} files across ${indexedPackages.length} package(s)`
+  );
+
+  if (result.embeddingProvider) {
+    log.info(`Semantic search enabled (${result.embeddingProvider}/${result.embeddingModel})`);
+  }
+
+  return result;
+}
+
+// =============================================================================
+// Vector Index Builder
+// =============================================================================
+
+/**
+ * Build vector index for semantic search
+ */
+async function buildVectorIndex(
+  chunks: Chunk[],
+  projectRoot: string,
+  providerOption: EmbeddingProvider,
+  result: IndexSearchResult
+): Promise<void> {
+  // Detect or validate provider
+  const resolvedProvider = providerOption === 'auto'
+    ? await withSpinner(
+        'Detecting embedding provider...',
+        async () => detectProvider(),
+        { successText: 'Provider detected' }
+      )
+    : providerOption;
+
+  const config = getProviderConfig(resolvedProvider);
+  result.embeddingProvider = resolvedProvider;
+  result.embeddingModel = config.model;
+
+  log.info(`Using ${resolvedProvider} (${config.model}, ${config.dimensions}d)`);
+
+  // Extract text content from chunks
+  const texts = chunks.map((c) => c.content);
+
+  // Generate embeddings
+  const embeddingResult = await withSpinner(
+    `Generating embeddings for ${chunks.length} chunks...`,
+    async () => generateEmbeddings(texts, resolvedProvider),
+    { successText: 'Embeddings generated' }
+  );
+
+  // Prepare vector chunks
+  const vectorChunks = chunks.map((chunk, i) => ({
+    id: chunk.id,
+    content: chunk.content,
+    path: chunk.path,
+    package: chunk.package,
+    title: chunk.metadata.title,
+    vector: embeddingResult.vectors[i]!,
+  }));
+
+  // Create vector store
+  const vectorStore = new VectorStore(projectRoot);
+
+  await withSpinner(
+    'Creating vector index...',
+    async () => {
+      await vectorStore.createIndex(vectorChunks, {
+        provider: resolvedProvider,
+        model: embeddingResult.model,
+        dimensions: embeddingResult.dimensions,
+        createdAt: new Date().toISOString(),
+      });
+    },
+    { successText: 'Vector index created' }
+  );
 }

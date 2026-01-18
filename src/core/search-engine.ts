@@ -1,6 +1,7 @@
 /**
  * src/core/search-engine.ts
  * Orama-based search engine for full-text search over context packages
+ * Extended with hybrid search (BM25 + vector) via Reciprocal Rank Fusion
  */
 import fs from 'fs-extra';
 import { create, insertMultiple, search, type Orama } from '@orama/orama';
@@ -8,6 +9,9 @@ import { persist, restore } from '@orama/plugin-data-persistence';
 import * as paths from '../utils/paths.js';
 import { log } from '../utils/logger.js';
 import type { Chunk } from './chunker.js';
+import { VectorStore, type VectorResult } from './vector-store.js';
+import { generateQueryEmbedding, type EmbeddingProvider } from './embeddings.js';
+import { reciprocalRankFusion, normalizeScores, type RankedResult } from './fusion.js';
 
 // =============================================================================
 // Constants
@@ -50,6 +54,17 @@ export interface SearchResult {
   score: number;
 }
 
+/** Search mode for hybrid search */
+export type SearchMode = 'fulltext' | 'semantic' | 'hybrid';
+
+/** Hybrid search result with source info */
+export interface HybridSearchResult extends SearchResult {
+  sources?: {
+    fulltext?: number;
+    vector?: number;
+  };
+}
+
 /** Index metadata for versioning */
 interface IndexMetadata {
   version: string;
@@ -87,6 +102,9 @@ const oramaSchema = {
 export class SearchEngine {
   private db: Orama<typeof oramaSchema> | null = null;
   private metadata: IndexMetadata | null = null;
+  private vectorStore: VectorStore | null = null;
+  private projectRoot: string | null = null;
+  private embeddingProvider: EmbeddingProvider = 'auto';
 
   /**
    * Check if the search engine has been initialized
@@ -159,6 +177,7 @@ export class SearchEngine {
    */
   async loadIndex(projectRoot: string): Promise<boolean> {
     const indexPath = paths.join(paths.getContextDir(projectRoot), SEARCH_INDEX_FILE);
+    this.projectRoot = projectRoot;
 
     if (!(await paths.exists(indexPath))) {
       log.debug('No existing search index found');
@@ -173,12 +192,49 @@ export class SearchEngine {
       this.metadata = storedIndex.metadata;
 
       log.debug(`Loaded search index: ${this.metadata.chunkCount} chunks`);
+
+      // Try to initialize vector store if it exists
+      await this.initializeVectorStore();
+
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       log.debug(`Failed to load search index: ${message}`);
       return false;
     }
+  }
+
+  /**
+   * Initialize the vector store if available
+   */
+  private async initializeVectorStore(): Promise<boolean> {
+    if (!this.projectRoot) return false;
+
+    try {
+      this.vectorStore = new VectorStore(this.projectRoot);
+      const initialized = await this.vectorStore.initialize();
+
+      if (initialized) {
+        const metadata = await this.vectorStore.getMetadata();
+        if (metadata) {
+          this.embeddingProvider = metadata.embedding.provider;
+          log.debug(`Loaded vector store (${metadata.embedding.model})`);
+        }
+      }
+
+      return initialized;
+    } catch (error) {
+      log.debug('Vector store not available');
+      this.vectorStore = null;
+      return false;
+    }
+  }
+
+  /**
+   * Check if vector search is available
+   */
+  hasVectorSearch(): boolean {
+    return this.vectorStore !== null;
   }
 
   /**
@@ -239,6 +295,92 @@ export class SearchEngine {
    */
   getPackages(): string[] {
     return this.metadata?.packages ?? [];
+  }
+
+  /**
+   * Hybrid search combining fulltext (BM25) and vector (semantic) search
+   */
+  async hybridSearch(options: {
+    query: string;
+    mode?: SearchMode;
+    packages?: string[];
+    limit?: number;
+  }): Promise<HybridSearchResult[]> {
+    const { query, mode = 'fulltext', packages, limit = DEFAULT_LIMIT } = options;
+
+    // Fulltext-only mode
+    if (mode === 'fulltext') {
+      return this.search({ query, packages, limit });
+    }
+
+    // Semantic or hybrid mode requires vector store
+    if (!this.vectorStore) {
+      if (mode === 'semantic') {
+        throw new Error('Vector search not available. Run "nocaap index --semantic" first.');
+      }
+      // Fall back to fulltext for hybrid if no vector store
+      log.debug('Vector store not available, falling back to fulltext search');
+      return this.search({ query, packages, limit });
+    }
+
+    // Generate query embedding
+    const queryVector = await generateQueryEmbedding(query, this.embeddingProvider);
+
+    // Semantic-only mode
+    if (mode === 'semantic') {
+      const vectorResults = await this.vectorStore.search(queryVector, limit);
+      return vectorResults.map((r) => ({
+        id: r.id,
+        content: r.content,
+        path: r.path,
+        package: r.package,
+        headings: [],
+        title: r.title,
+        score: r.score,
+        sources: { vector: 1 },
+      }));
+    }
+
+    // Hybrid mode: combine BM25 and vector results with RRF
+    const [fulltextResults, vectorResults] = await Promise.all([
+      this.search({ query, packages, limit: limit * 2 }),
+      this.vectorStore.search(queryVector, limit * 2),
+    ]);
+
+    // Convert to RankedResult format for fusion
+    const ftRanked: RankedResult[] = fulltextResults.map((r) => ({
+      id: r.id,
+      content: r.content,
+      path: r.path,
+      package: r.package,
+      title: r.title,
+      score: r.score,
+    }));
+
+    const vecRanked: RankedResult[] = vectorResults.map((r) => ({
+      id: r.id,
+      content: r.content,
+      path: r.path,
+      package: r.package,
+      title: r.title,
+      score: r.score,
+    }));
+
+    // Apply Reciprocal Rank Fusion
+    const fused = reciprocalRankFusion(ftRanked, vecRanked);
+    const normalized = normalizeScores(fused);
+
+    // Convert back to HybridSearchResult format
+    return normalized.slice(0, limit).map((r) => ({
+      id: r.id,
+      content: r.content,
+      path: r.path,
+      package: r.package,
+      headings: [],
+      title: r.title,
+      score: r.score,
+      sources: r.sources,
+    }));
   }
 }
 

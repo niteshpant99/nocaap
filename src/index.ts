@@ -186,13 +186,22 @@ program
 program
   .command('index')
   .description('Build INDEX.md and search index for AI agent access')
-  .action(async () => {
+  .option('--semantic', 'Enable semantic search with vector embeddings')
+  .option(
+    '--provider <provider>',
+    'Embedding provider: ollama | openai | tfjs | auto',
+    'auto'
+  )
+  .action(async (options) => {
     try {
       const projectRoot = process.cwd();
       // Generate INDEX.md first
       await generateIndexWithProgress(projectRoot);
-      // Then build search index
-      await indexSearchCommand();
+      // Then build search index (with optional semantic)
+      await indexSearchCommand({
+        semantic: options.semantic,
+        provider: options.provider,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log.error(message);

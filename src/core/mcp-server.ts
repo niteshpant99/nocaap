@@ -6,7 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import fs from 'fs-extra';
 import { z } from 'zod';
-import { SearchEngine, searchIndexExists } from './search-engine.js';
+import { SearchEngine, searchIndexExists, type SearchMode } from './search-engine.js';
 import { readConfig } from './config.js';
 import { readIndex } from './indexer.js';
 import * as paths from '../utils/paths.js';
@@ -98,20 +98,25 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
   // Tools
   // ==========================================================================
 
-  // Search tool - BM25 full-text search across all content
+  // Search tool - supports fulltext, semantic, and hybrid modes
   server.registerTool(
     'search',
     {
       title: 'Search Context',
-      description: 'Full-text search across all context packages using BM25 ranking',
+      description:
+        'Search across all context packages. ' +
+        'Modes: fulltext (BM25), semantic (vector similarity), hybrid (combined with RRF). ' +
+        'Hybrid mode requires `nocaap index --semantic` to be run first.',
       inputSchema: {
         query: z.string().describe('Search query'),
+        mode: z.enum(['fulltext', 'semantic', 'hybrid']).optional()
+          .describe('Search mode (default: fulltext, or hybrid if vector index exists)'),
         packages: z.array(z.string()).optional().describe('Filter to specific packages'),
         tags: z.array(z.string()).optional().describe('Filter by document tags'),
         limit: z.number().optional().describe('Maximum results (default: 10)'),
       },
     },
-    async ({ query, packages, tags, limit }) => {
+    async ({ query, mode, packages, tags, limit }) => {
       if (!searchEngine.isInitialized()) {
         return {
           content: [{
@@ -121,29 +126,47 @@ export async function createMcpServer(options: McpServerOptions): Promise<McpSer
         };
       }
 
-      const results = await searchEngine.search({
-        query,
-        packages,
-        tags,
-        limit: limit ?? 10,
-      });
+      // Determine search mode - default to hybrid if vector search is available
+      const searchMode: SearchMode = mode ?? (searchEngine.hasVectorSearch() ? 'hybrid' : 'fulltext');
 
-      const formattedResults = results.map((r, i) => ({
-        rank: i + 1,
-        path: r.path,
-        package: r.package,
-        title: r.title,
-        headings: r.headings,
-        score: r.score,
-        snippet: r.content.slice(0, 200) + (r.content.length > 200 ? '...' : ''),
-      }));
+      try {
+        const results = await searchEngine.hybridSearch({
+          query,
+          mode: searchMode,
+          packages,
+          limit: limit ?? 10,
+        });
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(formattedResults, null, 2),
-        }],
-      };
+        const formattedResults = results.map((r, i) => ({
+          rank: i + 1,
+          path: r.path,
+          package: r.package,
+          title: r.title,
+          headings: r.headings,
+          score: r.score,
+          sources: r.sources,
+          snippet: r.content.slice(0, 200) + (r.content.length > 200 ? '...' : ''),
+        }));
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              mode: searchMode,
+              vectorSearchAvailable: searchEngine.hasVectorSearch(),
+              results: formattedResults,
+            }, null, 2),
+          }],
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          content: [{
+            type: 'text',
+            text: `Search error: ${message}`,
+          }],
+        };
+      }
     }
   );
 
