@@ -17,6 +17,9 @@ const TARGET_CHUNK_SIZE = 500;
 /** Minimum chunk size to avoid tiny fragments */
 const MIN_CHUNK_SIZE = 100;
 
+/** Maximum size for README/index files (kept as single authoritative chunk) */
+const README_MAX_SIZE = 2000;
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -211,7 +214,24 @@ export async function chunkFile(
 
   const metadata: ChunkMetadata = { title, summary, type, tags };
 
-  // Split into sections
+  // Check if this is a README/index file - keep as single authoritative chunk
+  const filename = paths.basename(normalizedPath).toLowerCase();
+  const isIndexFile = filename === 'readme.md' || filename === 'index.md';
+
+  if (isIndexFile) {
+    // Keep README/index files as single chunk to preserve overview context
+    const content = body.trim().slice(0, README_MAX_SIZE);
+    return [{
+      id: `${relativePath}#0`,
+      content,
+      path: relativePath,
+      package: packageAlias,
+      headings: [title],
+      metadata: { ...metadata, type: metadata.type ?? 'index' },
+    }];
+  }
+
+  // Split into sections for regular files
   const sections = splitByH2Sections(body, title);
 
   // Further split large sections

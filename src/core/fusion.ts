@@ -29,14 +29,24 @@ export interface FusionResult {
   };
 }
 
+/** Configuration options for RRF */
+export interface RRFOptions {
+  /** Smoothing constant (default: 60, empirically optimal) */
+  k?: number;
+  /** Weight for fulltext/BM25 results (default: 0.4) */
+  fulltextWeight?: number;
+  /** Weight for vector/semantic results (default: 0.6) */
+  vectorWeight?: number;
+}
+
 // =============================================================================
 // Reciprocal Rank Fusion
 // =============================================================================
 
 /**
- * Combine BM25 (full-text) and vector search results using RRF
+ * Combine BM25 (full-text) and vector search results using weighted RRF
  *
- * Formula: RRF(d) = Σ 1/(k + rank(d))
+ * Formula: RRF(d) = Σ weight * (1/(k + rank(d)))
  *
  * Where k is a constant (typically 60) that controls how much higher-ranked
  * documents are weighted relative to lower-ranked ones.
@@ -46,23 +56,25 @@ export interface FusionResult {
  *
  * @param fulltextResults - Results from BM25 full-text search
  * @param vectorResults - Results from vector similarity search
- * @param k - Smoothing constant (default: 60, empirically optimal)
+ * @param options - RRF configuration options
  * @returns Combined and re-ranked results
  */
 export function reciprocalRankFusion(
   fulltextResults: RankedResult[],
   vectorResults: RankedResult[],
-  k: number = 60
+  options: RRFOptions = {}
 ): FusionResult[] {
+  const { k = 60, fulltextWeight = 0.4, vectorWeight = 0.6 } = options;
+
   const scores = new Map<string, {
     score: number;
     doc: RankedResult;
     sources: { fulltext?: number; vector?: number };
   }>();
 
-  // Process fulltext results
+  // Process fulltext results WITH weight
   fulltextResults.forEach((doc, rank) => {
-    const rrfScore = 1 / (k + rank + 1);
+    const rrfScore = fulltextWeight * (1 / (k + rank + 1));
     const existing = scores.get(doc.id);
 
     if (existing) {
@@ -77,9 +89,9 @@ export function reciprocalRankFusion(
     }
   });
 
-  // Process vector results
+  // Process vector results WITH weight
   vectorResults.forEach((doc, rank) => {
-    const rrfScore = 1 / (k + rank + 1);
+    const rrfScore = vectorWeight * (1 / (k + rank + 1));
     const existing = scores.get(doc.id);
 
     if (existing) {

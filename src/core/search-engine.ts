@@ -11,7 +11,7 @@ import { log } from '../utils/logger.js';
 import type { Chunk } from './chunker.js';
 import { VectorStore, type VectorResult } from './vector-store.js';
 import { generateQueryEmbedding, type EmbeddingProvider } from './embeddings.js';
-import { reciprocalRankFusion, normalizeScores, type RankedResult } from './fusion.js';
+import { reciprocalRankFusion, normalizeScores, type RankedResult, type RRFOptions } from './fusion.js';
 
 // =============================================================================
 // Constants
@@ -25,6 +25,10 @@ const DEFAULT_LIMIT = 10;
 
 /** Index version for future compatibility */
 const INDEX_VERSION = '1.0.0';
+
+/** RRF weight configuration - favor semantic search to reduce keyword noise */
+const RRF_FULLTEXT_WEIGHT = 0.4;
+const RRF_VECTOR_WEIGHT = 0.6;
 
 // =============================================================================
 // Types
@@ -94,6 +98,28 @@ const oramaSchema = {
   type: 'string',
   tags: 'string[]',
 } as const;
+
+// =============================================================================
+// Query Processing Helpers
+// =============================================================================
+
+/** Stop words to exclude from path matching */
+const STOP_WORDS = new Set([
+  'what', 'is', 'the', 'a', 'an', 'how', 'do', 'does', 'are', 'was',
+  'were', 'been', 'being', 'have', 'has', 'had', 'having', 'who',
+  'which', 'where', 'when', 'why', 'can', 'could', 'would', 'should',
+  'of', 'on', 'in', 'to', 'for', 'with', 'by', 'from', 'at', 'about',
+]);
+
+/**
+ * Extract meaningful keywords from query for path boosting
+ */
+function extractQueryKeywords(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !STOP_WORDS.has(word));
+}
 
 // =============================================================================
 // Search Engine Class
@@ -370,8 +396,36 @@ export class SearchEngine {
       score: r.score,
     }));
 
-    // Apply Reciprocal Rank Fusion
-    const fused = reciprocalRankFusion(ftRanked, vecRanked);
+    // Apply Reciprocal Rank Fusion with weighted scoring
+    const fused = reciprocalRankFusion(ftRanked, vecRanked, {
+      fulltextWeight: RRF_FULLTEXT_WEIGHT,
+      vectorWeight: RRF_VECTOR_WEIGHT,
+    });
+
+    // Apply path-based boost (keywords in query matching folder/file names)
+    const queryKeywords = extractQueryKeywords(query);
+    for (const result of fused) {
+      const pathLower = result.path.toLowerCase();
+      let boost = 1.0;
+      for (const keyword of queryKeywords) {
+        if (pathLower.includes(keyword)) {
+          boost *= 1.15; // 15% boost per keyword match in path
+        }
+      }
+      result.score *= boost;
+    }
+
+    // Boost index documents (README.md, index.md)
+    for (const result of fused) {
+      const pathLower = result.path.toLowerCase();
+      if (pathLower.endsWith('readme.md') || pathLower.endsWith('index.md')) {
+        result.score *= 1.25; // 25% boost for index documents
+      }
+    }
+
+    // Re-sort after boosting
+    fused.sort((a, b) => b.score - a.score);
+
     const normalized = normalizeScores(fused);
 
     // Convert back to HybridSearchResult format
