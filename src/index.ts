@@ -13,6 +13,8 @@ import { listCommand } from './commands/list.js';
 import { removeCommand } from './commands/remove.js';
 import { configCommand } from './commands/config.js';
 import { pushCommand } from './commands/push.js';
+import { serveCommand } from './commands/serve.js';
+import { indexSearchCommand } from './commands/index-search.js';
 import { generateIndexWithProgress } from './core/indexer.js';
 import { log } from './utils/logger.js';
 
@@ -178,17 +180,37 @@ program
   });
 
 // =============================================================================
-// Generate Command
+// Index Command
 // =============================================================================
 
 program
-  .command('generate')
-  .alias('index')
-  .description('Regenerate INDEX.md without updating packages')
+  .command('index')
+  .description('Build INDEX.md and search index for AI agent access')
   .action(async () => {
     try {
       const projectRoot = process.cwd();
+      // Generate INDEX.md first
       await generateIndexWithProgress(projectRoot);
+      // Then build search index
+      await indexSearchCommand();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(message);
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// Serve Command
+// =============================================================================
+
+program
+  .command('serve')
+  .description('Start the MCP server for AI agent access')
+  .option('--print-config', 'Print Claude Desktop configuration JSON')
+  .action(async (options) => {
+    try {
+      await serveCommand({ printConfig: options.printConfig });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log.error(message);
