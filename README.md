@@ -18,21 +18,18 @@ Your AI coding assistant is only as good as its context.
 *   **Native Git Security:** We don't handle tokens. If you have SSH access to the repo via GitHub/GitLab, it works. If you don't, it skips. Zero configuration.
 *   **Lightning Fast:** Uses `git sparse-checkout` and `partial clones` to fetch *only* the specific documentation folders you need, not the entire repo history.
 *   **AI Optimized:** Auto-generates a token-conscious `INDEX.md` that guides AI agents to the right files without blowing up context windows.
+*   **MCP Server:** Expose your context to Claude Desktop via Model Context Protocol with search, document retrieval, and section extraction tools.
+*   **Hybrid Search:** Full-text (BM25) and semantic (vector) search with Reciprocal Rank Fusion for best results.
 *   **Private Repo Support:** Seamlessly handles private repositories using your existing SSH keys - no tokens to manage.
 
 ## 📦 Installation
 
-### Option 1: Install from GitHub (Recommended)
-
 ```bash
-# Install directly from GitHub
-npm install -g git+https://github.com/niteshpant99/nocaap.git
-
-# Or with SSH (if you have SSH keys configured)
-npm install -g git+ssh://git@github.com:niteshpant99/nocaap.git
+# Install from npm (recommended)
+npm install -g nocaap
 ```
 
-### Option 2: Install from Source
+### Alternative: Install from Source
 
 ```bash
 # Clone the repo
@@ -43,18 +40,9 @@ cd nocaap
 pnpm install
 pnpm run build
 
-# Link globally (makes 'nocaap' command available)
+# Link globally
 npm link
 ```
-
-### Option 3: npx (Run without installing)
-
-```bash
-# Run setup directly from GitHub
-npx github:niteshpant99/nocaap setup
-```
-
-> **Coming Soon:** `npm install -g nocaap` (npm package publication in progress)
 
 ## 🏗️ Setting Up Your Organization's Context Hub
 
@@ -145,7 +133,90 @@ nocaap update
 *   **Safety:** Checks for local changes ("Dirty State") before overwriting.
 *   **Drift:** Detects if the remote version or configured path has changed.
 
-### 4. Other Commands
+### 4. Push Changes Upstream
+
+Push local context changes back to the source repository as a PR.
+
+```bash
+# Interactive - select packages to push
+nocaap push
+
+# Push specific package
+nocaap push engineering
+
+# Push all changed packages
+nocaap push --all
+
+# With custom commit message
+nocaap push engineering -m "Update API documentation"
+```
+
+**Features:**
+- Creates branch: `nocaap/{alias}-{YYYYMMDD}`
+- Auto-creates PR via gh CLI or GitHub API
+- Detects upstream divergence (requires `nocaap update` first)
+
+### 5. Build Search Index
+
+Build a searchable index for AI agents to query your context.
+
+```bash
+# Build full-text search index
+nocaap index
+
+# Build with semantic search (requires Ollama or OpenAI)
+nocaap index --semantic
+
+# Specify embedding provider
+nocaap index --semantic --provider ollama
+nocaap index --semantic --provider openai
+```
+
+**Embedding Providers:**
+- **Ollama** (default): Free, local, requires `ollama pull nomic-embed-text`
+- **OpenAI**: Requires `OPENAI_API_KEY` environment variable
+- **Transformers.js**: Automatic fallback, runs in Node.js
+
+### 6. Start MCP Server
+
+Expose your context to AI agents via Model Context Protocol.
+
+```bash
+# Start MCP server (for Claude Desktop)
+nocaap serve
+
+# Specify project root
+nocaap serve --root /path/to/project
+
+# Print Claude Desktop config JSON
+nocaap serve --print-config
+```
+
+**Claude Desktop Setup:**
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "nocaap": {
+      "command": "nocaap",
+      "args": ["serve", "--root", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+**MCP Tools Available:**
+| Tool | Description |
+|------|-------------|
+| `get_overview` | Get structured overview of all context (recommended first call) |
+| `search` | Search across all packages (fulltext, semantic, or hybrid) |
+| `get_document` | Retrieve full document by path |
+| `get_section` | Extract specific section by heading |
+| `list_contexts` | List installed packages |
+
+### 7. Other Commands
 
 ```bash
 # List installed packages
@@ -158,6 +229,20 @@ nocaap remove <alias>
 nocaap generate
 ```
 
+## 📋 Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `nocaap setup` | Interactive setup wizard |
+| `nocaap add <repo>` | Add a context package |
+| `nocaap update [alias]` | Update packages (or all if no alias) |
+| `nocaap list` | List installed packages |
+| `nocaap remove <alias>` | Remove a package |
+| `nocaap push [alias]` | Push changes upstream as PR |
+| `nocaap index` | Build search index (add `--semantic` for vectors) |
+| `nocaap serve` | Start MCP server for AI agents |
+| `nocaap config [key] [value]` | Manage configuration |
+
 ## 📂 Directory Structure
 
 `nocaap` manages everything inside `.context/`. You should commit `context.config.json` and `context.lock`, but **ignore** the packages.
@@ -169,6 +254,8 @@ project-root/
 │   ├── context.config.json   # Manifest of installed contexts
 │   ├── context.lock          # Exact commit SHAs for reproducibility
 │   ├── INDEX.md              # THE file you point your AI to
+│   ├── index.orama.json      # Full-text search index
+│   ├── index.lance/          # Vector embeddings (if --semantic)
 │   └── packages/             # Cloned content (Partial clones)
 │       ├── engineering/
 │       └── design-system/
@@ -176,9 +263,20 @@ project-root/
 
 ## 🤖 AI Integration
 
-To make your AI aware of the context, simply mention `@.context/INDEX.md` in your prompt, or configure your editor:
+### Claude Desktop (Recommended)
 
-**VS Code / Cursor (`.vscode/settings.json`):**
+Use the MCP server for the best experience:
+
+1. Build the search index: `nocaap index --semantic`
+2. Add to Claude Desktop config (see [MCP Server section](#6-start-mcp-server))
+3. Restart Claude Desktop
+
+Claude will automatically have access to search, document retrieval, and section extraction tools.
+
+### VS Code / Cursor
+
+For Copilot integration, add to `.vscode/settings.json`:
+
 ```json
 {
   "github.copilot.chat.context.additionalContextFiles": [
@@ -186,6 +284,10 @@ To make your AI aware of the context, simply mention `@.context/INDEX.md` in you
   ]
 }
 ```
+
+### Manual
+
+Simply mention `@.context/INDEX.md` in your prompt to give AI agents access to the context index.
 
 ## 🔐 Private Repository Support
 

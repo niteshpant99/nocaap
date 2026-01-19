@@ -40,9 +40,34 @@ export const PackageEntrySchema = z.object({
   version: z.string().default('main'),
 });
 
+// Settings sub-schemas (all optional for backward compatibility)
+export const SearchSettingsSchema = z.object({
+  fulltextWeight: z.number().min(0).max(1).optional(),
+  vectorWeight: z.number().min(0).max(1).optional(),
+  rrfK: z.number().int().positive().optional(),
+}).optional();
+
+export const PushSettingsSchema = z.object({
+  baseBranch: z.string().optional(),
+}).optional();
+
+export const IndexSettingsSchema = z.object({
+  semantic: z.boolean().optional(),
+  provider: z.enum(['ollama', 'openai', 'tfjs', 'auto']).optional(),
+}).optional();
+
+export const EmbeddingSettingsSchema = z.object({
+  provider: z.enum(['ollama', 'openai', 'tfjs', 'auto']).optional(),
+  ollamaModel: z.string().optional(),
+  ollamaBaseUrl: z.string().url().optional(),
+}).optional();
+
 export const ConfigSchema = z.object({
   registryUrl: z.string().url().optional(),
   packages: z.array(PackageEntrySchema),
+  search: SearchSettingsSchema,
+  push: PushSettingsSchema,
+  index: IndexSettingsSchema,
 });
 
 // =============================================================================
@@ -58,6 +83,17 @@ export const LockEntrySchema = z.object({
 export const LockfileSchema = z.record(z.string(), LockEntrySchema);
 
 // =============================================================================
+// Global Config Schema (~/.nocaap/config.json)
+// =============================================================================
+
+export const GlobalConfigSchema = z.object({
+  defaultRegistry: z.string().url().optional(),
+  updatedAt: z.string().datetime().optional(),
+  push: PushSettingsSchema,
+  embedding: EmbeddingSettingsSchema,
+});
+
+// =============================================================================
 // Type Exports
 // =============================================================================
 
@@ -67,6 +103,13 @@ export type PackageEntry = z.infer<typeof PackageEntrySchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 export type LockEntry = z.infer<typeof LockEntrySchema>;
 export type Lockfile = z.infer<typeof LockfileSchema>;
+export type GlobalConfig = z.infer<typeof GlobalConfigSchema>;
+
+// Settings types (unwrapped from optional for convenience)
+export type SearchSettings = z.infer<typeof SearchSettingsSchema>;
+export type PushSettings = z.infer<typeof PushSettingsSchema>;
+export type IndexSettings = z.infer<typeof IndexSettingsSchema>;
+export type EmbeddingSettings = z.infer<typeof EmbeddingSettingsSchema>;
 
 // =============================================================================
 // Validation Helpers
@@ -115,5 +158,13 @@ export function safeValidateConfig(data: unknown): ValidationResult<Config> {
 
 export function safeValidateLockfile(data: unknown): ValidationResult<Lockfile> {
   return safeValidate(LockfileSchema, data);
+}
+
+export function validateGlobalConfig(data: unknown): GlobalConfig {
+  return GlobalConfigSchema.parse(data);
+}
+
+export function safeValidateGlobalConfig(data: unknown): ValidationResult<GlobalConfig> {
+  return safeValidate(GlobalConfigSchema, data);
 }
 

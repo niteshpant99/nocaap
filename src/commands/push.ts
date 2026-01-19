@@ -6,7 +6,8 @@ import { checkbox } from '@inquirer/prompts';
 import fs from 'fs-extra';
 import * as paths from '../utils/paths.js';
 import { log, createSpinner, style } from '../utils/logger.js';
-import { readConfig, readLockfile, getPackage, getLockEntry } from '../core/config.js';
+import { readConfig, readLockfile } from '../core/config.js';
+import { resolvePushSettings } from '../core/settings.js';
 import {
   cloneToTemp,
   getRemoteCommitHash,
@@ -62,10 +63,10 @@ function generateBranchName(alias: string): string {
  * Check if a package has local changes by comparing directory contents
  * Since we flatten the sparse checkout, we compare against a fresh clone
  */
-async function hasLocalChanges(
+async function _hasLocalChanges(
   packagePath: string,
-  repoUrl: string,
-  sparsePath?: string
+  _repoUrl: string,
+  _sparsePath?: string
 ): Promise<boolean> {
   // For now, we do a simple check: if the package directory exists and has files
   // A more sophisticated check would compare file hashes
@@ -131,12 +132,16 @@ async function pushSinglePackage(
   const branchName = generateBranchName(pkg.alias);
   const repoInfo = parseRepoInfo(pkg.source);
 
+  // Resolve push settings (uses configured baseBranch if set, otherwise auto-detect)
+  const pushSettings = await resolvePushSettings(projectRoot);
+  const baseBranch = pushSettings.baseBranch ?? await getDefaultBranch(pkg.source);
+  log.debug(`Using base branch: ${baseBranch}`);
+
   // Step 1: Check for upstream divergence
   const checkSpinner = createSpinner('Checking upstream...').start();
 
   try {
-    const defaultBranch = await getDefaultBranch(pkg.source);
-    const remoteCommit = await getRemoteCommitHash(pkg.source, defaultBranch);
+    const remoteCommit = await getRemoteCommitHash(pkg.source, baseBranch);
 
     if (remoteCommit !== pkg.localCommit) {
       checkSpinner.fail('Upstream has diverged');
@@ -158,8 +163,7 @@ async function pushSinglePackage(
   let cleanup: () => Promise<void>;
 
   try {
-    const defaultBranch = await getDefaultBranch(pkg.source);
-    const result = await cloneToTemp(pkg.source, defaultBranch);
+    const result = await cloneToTemp(pkg.source, baseBranch);
     tempDir = result.tempDir;
     cleanup = result.cleanup;
     cloneSpinner.succeed('Cloned to temp directory');
@@ -222,15 +226,14 @@ async function pushSinglePackage(
 
     // Step 7: Create PR
     const prSpinner = createSpinner('Creating PR...').start();
-    const defaultBranch = await getDefaultBranch(pkg.source);
-    const manualUrl = buildNewPrUrl(repoInfo, branchName);
+    const manualUrl = buildNewPrUrl(repoInfo, branchName, baseBranch);
 
     const prResult = await createPr({
       repoDir: tempDir,
       owner: repoInfo.owner,
       repo: repoInfo.repo,
       branch: branchName,
-      baseBranch: defaultBranch,
+      baseBranch,
       title: `Update ${pkg.alias} context via nocaap`,
       body: `This PR was created automatically by nocaap.\n\n**Commit message:** ${commitMessage}`,
       manualUrl,

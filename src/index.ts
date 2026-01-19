@@ -2,6 +2,9 @@
  * src/index.ts
  * nocaap CLI entry point
  */
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { Command } from 'commander';
 import { setupCommand } from './commands/setup.js';
 import { addCommand } from './commands/add.js';
@@ -10,8 +13,15 @@ import { listCommand } from './commands/list.js';
 import { removeCommand } from './commands/remove.js';
 import { configCommand } from './commands/config.js';
 import { pushCommand } from './commands/push.js';
+import { serveCommand } from './commands/serve.js';
+import { indexSearchCommand } from './commands/index-search.js';
 import { generateIndexWithProgress } from './core/indexer.js';
 import { log } from './utils/logger.js';
+
+// Read version from package.json
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
 
 // =============================================================================
 // CLI Setup
@@ -26,7 +36,7 @@ program
       'Standardize your AI agent context across teams.\n' +
       'Run `nocaap setup` to get started.'
   )
-  .version('0.1.0');
+  .version(pkg.version);
 
 // =============================================================================
 // Setup Command
@@ -131,14 +141,16 @@ program
 
 program
   .command('config [key] [value]')
-  .description('Manage global nocaap configuration')
+  .description('Manage nocaap configuration')
   .option('-l, --list', 'Show all configuration')
-  .option('--clear', 'Clear the specified config key')
+  .option('-g, --global', 'Use global config scope')
+  .option('-p, --project', 'Use project config scope')
   .action(async (key, value, options) => {
     try {
       await configCommand(key, value, {
         list: options.list,
-        clear: options.clear,
+        global: options.global,
+        project: options.project,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -170,20 +182,52 @@ program
   });
 
 // =============================================================================
-// Generate Command
+// Index Command
 // =============================================================================
 
 program
-  .command('generate')
-  .alias('index')
-  .description('Regenerate INDEX.md without updating packages')
-  .action(async () => {
+  .command('index')
+  .description('Build INDEX.md and search index for AI agent access')
+  .option('--semantic', 'Enable semantic search with vector embeddings')
+  .option(
+    '--provider <provider>',
+    'Embedding provider: ollama | openai | tfjs | auto',
+    'auto'
+  )
+  .action(async (options) => {
     try {
       const projectRoot = process.cwd();
+      // Generate INDEX.md first
       await generateIndexWithProgress(projectRoot);
+      // Then build search index (with optional semantic)
+      await indexSearchCommand({
+        semantic: options.semantic,
+        provider: options.provider,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log.error(message);
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// Serve Command
+// =============================================================================
+
+program
+  .command('serve')
+  .description('Start the MCP server for AI agent access')
+  .option('--print-config', 'Print Claude Desktop configuration JSON')
+  .option('--root <path>', 'Project root directory (default: current directory)')
+  .action(async (options) => {
+    try {
+      await serveCommand({ printConfig: options.printConfig, root: options.root });
+    } catch (error) {
+      // IMPORTANT: Use stderr for errors in serve command
+      // MCP uses stdout for JSON-RPC, so any stdout output corrupts the protocol
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Error: ${message}`);
       process.exit(1);
     }
   });

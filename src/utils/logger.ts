@@ -3,7 +3,7 @@
 * Logger utilities with Chalk + Ora wrappers
  */
 import chalk from 'chalk';
-import ora, { type Ora } from 'ora';
+import ora from 'ora';
 
 // =============================================================================
 // Chalk Wrappers

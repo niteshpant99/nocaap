@@ -1,8 +1,8 @@
 # SPECS.md: The Unified Vision for nocaap
 
-**Version:** 1.0.0 (PoC Definition)
-**Status:** Approved for Implementation
-**Date:** November 2025
+**Version:** 1.1.0 (MCP & Search Integration)
+**Status:** Implemented
+**Date:** January 2026
 
 ---
 
@@ -94,6 +94,70 @@ We generate a single `INDEX.md` file for the AI.
 *   **Output:** A consolidated markdown file with links to the full content.
 *   **Budgeting:** Warning if `INDEX.md` exceeds 8,000 tokens.
 
+### 5.3 MCP Server (AI Agent Integration)
+
+nocaap exposes organizational context to AI agents via the Model Context Protocol (MCP).
+
+#### Starting the Server
+```bash
+nocaap serve              # Start MCP server (stdio transport)
+nocaap serve --root /path # Specify project root
+nocaap serve --print-config  # Print Claude Desktop config JSON
+```
+
+#### MCP Resources
+| Resource | URI | Description |
+|----------|-----|-------------|
+| **index** | `nocaap://index` | Complete INDEX.md with document summaries |
+| **manifest** | `nocaap://manifest` | Installed packages and search availability |
+
+#### MCP Tools
+| Tool | Description |
+|------|-------------|
+| **get_overview** | Get structured overview of all organizational knowledge. *Recommended first call.* |
+| **search** | Search across team directory, product docs, engineering guidelines, company strategy |
+| **get_document** | Retrieve full document content by path (from search results) |
+| **get_section** | Extract specific section by heading from a document |
+| **list_contexts** | List available knowledge domains and installed packages |
+
+#### Claude Desktop Integration
+```json
+{
+  "mcpServers": {
+    "nocaap": {
+      "command": "nocaap",
+      "args": ["serve", "--root", "/path/to/project"]
+    }
+  }
+}
+```
+
+### 5.4 Search Engine
+
+nocaap provides three search modes for AI agents.
+
+#### Full-Text Search (Default)
+*   **Engine:** Orama with BM25 ranking
+*   **Index:** `.context/index.orama.json`
+*   **Use case:** Keyword-based queries, exact matches
+
+#### Semantic Search
+*   **Engine:** LanceDB vector store
+*   **Index:** `.context/index.lance/`
+*   **Providers:** Ollama (local), OpenAI (API), Transformers.js (fallback)
+*   **Use case:** Conceptual queries, meaning-based search
+
+#### Hybrid Search
+*   **Algorithm:** Reciprocal Rank Fusion (RRF)
+*   **Weights:** fulltext=0.4, vector=0.6 (configurable)
+*   **Boosting:** +15% for path matches, +25% for index files
+*   **Use case:** Best overall results (default when vectors available)
+
+```bash
+nocaap index              # Build full-text index
+nocaap index --semantic   # Build with vector embeddings
+```
+
 ---
 
 ## 6. Data Structures
@@ -170,19 +234,48 @@ We prioritize **Data Safety** and **UX** over feature breadth for the PoC.
 3.  CLI checks remote for updates OR config changes.
 4.  CLI performs safe update (checking for dirty state).
 
+### The AI Agent Connection (`npx nocaap serve`)
+1.  CLI validates `.context/` directory exists.
+2.  CLI loads search index (if available).
+3.  CLI starts MCP server on stdio transport.
+4.  AI agent (Claude Desktop) connects and discovers tools.
+5.  Agent uses `get_overview` to understand available context.
+6.  Agent uses `search` → `get_document` pattern for queries.
+
+### Building Search Index (`npx nocaap index`)
+1.  CLI scans `.context/packages/` for markdown files.
+2.  CLI chunks documents (500 tokens, heading boundaries).
+3.  CLI builds Orama full-text index.
+4.  (Optional) CLI generates embeddings with selected provider.
+5.  CLI saves indices to `.context/`.
+
 ---
 
-## 9. Future Roadmap (Out of Scope for PoC)
+## 9. Completed Features (Post-PoC)
 
-These features are explicitly deferred to keep the PoC grounded:
+The following features have been implemented since the initial PoC:
 
-1.  **Legacy Git Support:** No support for on-prem Bitbucket/GitLab servers that lack `partial clone` capability.
-2.  **Interactive Scaffolding:** No `nocaap create` command yet. Files must be created manually.
-3.  **Smart Merge:** No interactive UI to help users push local changes back to the remote.
-4.  **Complex Federation:** No semantic versioning for Registries.
+1.  **MCP Server:** Full Model Context Protocol integration for AI agents (Claude Desktop).
+2.  **Full-Text Search:** Orama-based BM25 search across all context packages.
+3.  **Semantic Search:** Vector embeddings via Ollama, OpenAI, or Transformers.js.
+4.  **Hybrid Search:** Reciprocal Rank Fusion combining BM25 and vector results.
+5.  **Two-Way Sync:** `nocaap push` command for contributing changes back via PR.
+6.  **npm Published:** Available globally via `npm install -g nocaap`.
+7.  **Configuration System:** Global and project-level config with merge logic.
+
+## 10. Future Roadmap
+
+Features planned for future releases:
+
+1.  **`nocaap scrape`:** Scrape documentation from websites and PDFs.
+2.  **`nocaap create`:** Scaffold new context packages with templates.
+3.  **Post-Setup Wizard:** Guided indexing experience after setup.
+4.  **Cursor/Claude Skills:** Native IDE integration beyond MCP.
+5.  **Web Interface:** For non-technical users who can't use CLI.
+6.  **Federated Networks:** Connect registries across organizations.
 
 ---
 
-## 10. Conclusion
+## 11. Conclusion
 
 We are building the "Git" of AI Context. By remaining stateless, auth-less (relying on SSH), and leveraging the native power of `sparse-checkout`, **nocaap** provides a robust, enterprise-ready solution with zero infrastructure cost.

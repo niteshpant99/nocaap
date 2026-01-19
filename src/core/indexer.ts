@@ -221,7 +221,6 @@ async function findDocFiles(dirPath: string): Promise<string[]> {
  */
 export async function generateIndex(projectRoot: string): Promise<IndexResult> {
   const contextDir = paths.getContextDir(projectRoot);
-  const packagesDir = paths.getPackagesDir(projectRoot);
   const warnings: string[] = [];
 
   log.debug(`Generating index for ${projectRoot}`);

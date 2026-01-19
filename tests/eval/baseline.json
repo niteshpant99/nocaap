@@ -1,0 +1,216 @@
+{
+  "timestamp": "2026-01-18T22:38:02.197Z",
+  "mode": "fulltext",
+  "metrics": {
+    "total": 13,
+    "passed": 10,
+    "failed": 3,
+    "accuracyAt1": 0.7692307692307693,
+    "mrr": 0.825091575091575
+  },
+  "results": [
+    {
+      "id": "Q1",
+      "query": "What is Acme Labs?",
+      "passed": true,
+      "actualTop": "packages/acme-identity/README.md",
+      "expectedPattern": "acme-identity\\/(about|README)\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-identity/README.md",
+        "packages/acme-identity/about.md",
+        "packages/acme-identity/values.md",
+        "packages/acme-identity/team.md",
+        "packages/acme-identity/team.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "Q2",
+      "query": "Who is the CTO?",
+      "passed": false,
+      "actualTop": "packages/acme-products/dataflow.md",
+      "expectedPattern": "team\\.md",
+      "rank": 4,
+      "top5": [
+        "packages/acme-products/dataflow.md",
+        "packages/acme-projects/project-phoenix.md",
+        "packages/acme-past-projects/api-migration.md",
+        "packages/acme-identity/team.md",
+        "packages/acme-identity/team.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "Q3",
+      "query": "What products does Acme have?",
+      "passed": true,
+      "actualTop": "packages/acme-products/README.md",
+      "expectedPattern": "acme-products\\/README\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-products/README.md",
+        "packages/acme-identity/about.md",
+        "packages/acme-identity/README.md",
+        "packages/acme-identity/team.md",
+        "packages/acme-identity/values.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "Q4",
+      "query": "Tell me about Widget Pro",
+      "passed": true,
+      "actualTop": "packages/acme-products/widget-pro.md",
+      "expectedPattern": "widget-pro\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-products/widget-pro.md",
+        "packages/acme-projects/README.md",
+        "packages/acme-products/README.md",
+        "packages/acme-products/widget-pro.md",
+        "packages/acme-past-projects/README.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "Q5",
+      "query": "Which products are in production?",
+      "passed": true,
+      "actualTop": "packages/acme-products/README.md",
+      "expectedPattern": "acme-products\\/(README|widget-pro)\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-products/README.md",
+        "packages/acme-projects/project-aurora.md",
+        "packages/acme-projects/project-phoenix.md",
+        "packages/acme-design/colors.md",
+        "packages/acme-projects/project-phoenix.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "Q6",
+      "query": "What projects is Acme working on?",
+      "passed": true,
+      "actualTop": "packages/acme-projects/README.md",
+      "expectedPattern": "acme-projects\\/README\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-projects/README.md",
+        "packages/acme-past-projects/README.md",
+        "packages/acme-identity/about.md",
+        "packages/acme-identity/README.md",
+        "packages/acme-products/dataflow.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "Q7",
+      "query": "Tell me about Project Phoenix",
+      "passed": false,
+      "actualTop": "packages/acme-projects/README.md",
+      "expectedPattern": "project-phoenix\\.md",
+      "rank": 3,
+      "top5": [
+        "packages/acme-projects/README.md",
+        "packages/acme-past-projects/README.md",
+        "packages/acme-projects/project-phoenix.md",
+        "packages/acme-projects/project-phoenix.md",
+        "packages/acme-projects/project-phoenix.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "E1",
+      "query": "color system",
+      "passed": true,
+      "actualTop": "packages/acme-design/colors.md",
+      "expectedPattern": "colors\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-design/colors.md",
+        "packages/acme-design/colors.md",
+        "packages/acme-design/colors.md",
+        "packages/acme-projects/project-phoenix.md",
+        "packages/acme-projects/project-phoenix.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "E2",
+      "query": "past completed projects",
+      "passed": true,
+      "actualTop": "packages/acme-past-projects/README.md",
+      "expectedPattern": "acme-past-projects",
+      "rank": 1,
+      "top5": [
+        "packages/acme-past-projects/README.md",
+        "packages/acme-projects/README.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "E3",
+      "query": "cloud architecture migration",
+      "passed": false,
+      "actualTop": "packages/acme-products/cloudsync.md",
+      "expectedPattern": "project-phoenix\\.md",
+      "rank": 7,
+      "top5": [
+        "packages/acme-products/cloudsync.md",
+        "packages/acme-products/cloudsync.md",
+        "packages/acme-past-projects/api-migration.md",
+        "packages/acme-past-projects/api-migration.md",
+        "packages/acme-past-projects/api-migration.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "E4",
+      "query": "enterprise pricing",
+      "passed": true,
+      "actualTop": "packages/acme-products/widget-pro.md",
+      "expectedPattern": "widget-pro\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-products/widget-pro.md",
+        "packages/acme-products/widget-pro.md",
+        "packages/acme-projects/project-phoenix.md",
+        "packages/acme-products/widget-pro.md",
+        "packages/acme-projects/project-phoenix.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "E5",
+      "query": "typography fonts",
+      "passed": true,
+      "actualTop": "packages/acme-design/typography.md",
+      "expectedPattern": "typography\\.md",
+      "rank": 1,
+      "top5": [
+        "packages/acme-design/typography.md",
+        "packages/acme-design/typography.md",
+        "packages/acme-design/typography.md"
+      ],
+      "violations": []
+    },
+    {
+      "id": "BUG-001",
+      "query": "What projects does Acme have?",
+      "passed": true,
+      "actualTop": "packages/acme-projects/README.md",
+      "expectedPattern": "projects",
+      "rank": 1,
+      "top5": [
+        "packages/acme-projects/README.md",
+        "packages/acme-past-projects/README.md",
+        "packages/acme-identity/about.md",
+        "packages/acme-identity/README.md",
+        "packages/acme-products/README.md"
+      ],
+      "violations": []
+    }
+  ]
+}

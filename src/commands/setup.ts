@@ -12,17 +12,13 @@ import {
   writeConfig,
   upsertPackage,
   updateLockEntry,
-  updateCursorRules,
   updateClaudeMd,
 } from '../core/config.js';
 import {
   getDefaultRegistry,
   setDefaultRegistry,
 } from '../core/global-config.js';
-import {
-  fetchRegistryWithImports,
-  findContextByName,
-} from '../core/registry.js';
+import { fetchRegistryWithImports } from '../core/registry.js';
 import { checkAccess, sparseClone } from '../core/git-engine.js';
 import { generateIndexWithProgress } from '../core/indexer.js';
 import type { Registry, ContextEntry } from '../schemas/index.js';
@@ -197,11 +193,36 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
   log.newline();
 
   // Step 4: Interactive selection
-  const choices = accessibleContexts.map(({ context }) => ({
-    name: formatContextChoice(context),
-    value: context.name,
-    checked: false,
-  }));
+  // Get already installed packages to mark them
+  const currentConfig = await readConfig(projectRoot);
+  const installedAliases = new Set(
+    currentConfig?.packages.map(p => p.alias) ?? []
+  );
+
+  // Build choices with installed status
+  const choices = accessibleContexts.map(({ context }) => {
+    const alias = generateAlias(context);
+    const isInstalled = installedAliases.has(alias);
+
+    return {
+      name: isInstalled
+        ? `${formatContextChoice(context)} ${style.dim('[already installed]')}`
+        : formatContextChoice(context),
+      value: context.name,
+      checked: false,
+      disabled: isInstalled ? 'Already installed' : false,
+    };
+  });
+
+  // Show count of already installed
+  const installedCount = [...installedAliases].filter(alias =>
+    accessibleContexts.some(({ context }) => generateAlias(context) === alias)
+  ).length;
+
+  if (installedCount > 0) {
+    log.info(`${installedCount} package(s) already installed (shown as disabled)`);
+    log.newline();
+  }
 
   const selectedNames = await checkbox({
     message: 'Select contexts to install:',
@@ -224,9 +245,9 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
   }
 
   // Save registry URL to config
-  const existingConfig = (await readConfig(projectRoot)) ?? { packages: [] };
-  existingConfig.registryUrl = registryUrl;
-  await writeConfig(projectRoot, existingConfig);
+  const configToUpdate = (await readConfig(projectRoot)) ?? { packages: [] };
+  configToUpdate.registryUrl = registryUrl;
+  await writeConfig(projectRoot, configToUpdate);
 
   log.newline();
 
@@ -242,6 +263,13 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     if (!context) continue;
 
     const alias = generateAlias(context);
+
+    // Double-check: skip if already installed
+    if (installedAliases.has(alias)) {
+      log.dim(`Skipping ${alias} (already installed)`);
+      continue;
+    }
+
     const spinner = createSpinner(`Installing ${style.bold(context.name)}...`).start();
 
     try {
@@ -284,30 +312,12 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     await generateIndexWithProgress(projectRoot);
   }
 
-  // Step 8: Offer IDE integrations
+  // Step 8: Offer CLAUDE.md integration
   if (successCount > 0) {
     log.newline();
     log.hr();
     log.newline();
-    log.info('IDE Integration (optional)');
-    log.newline();
 
-    // Cursor integration
-    const addCursor = await confirm({
-      message: 'Add nocaap reference to Cursor rules?',
-      default: true,
-    });
-
-    if (addCursor) {
-      const updated = await updateCursorRules(projectRoot);
-      if (updated) {
-        log.success('Added nocaap reference to Cursor rules');
-      } else {
-        log.dim('Cursor rules already configured');
-      }
-    }
-
-    // Claude integration
     const addClaude = await confirm({
       message: 'Add nocaap reference to CLAUDE.md?',
       default: true,

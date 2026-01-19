@@ -9,9 +9,15 @@ import {
   type Lockfile,
   type LockEntry,
   type PackageEntry,
+  type SearchSettings,
+  type PushSettings,
+  type IndexSettings,
   safeValidateConfig,
   safeValidateLockfile,
 } from '../schemas/index.js';
+
+// Re-export settings types for convenience
+export type { SearchSettings, PushSettings, IndexSettings };
 import { log } from '../utils/logger.js';
 
 // =============================================================================
@@ -280,7 +286,7 @@ export async function getPackage(
 // =============================================================================
 
 const GITIGNORE_ENTRY = '.context/packages/';
-const GITIGNORE_COMMENT = '# nocaap packages (auto-generated)';
+const GITIGNORE_COMMENT = '# nocaap packages';
 
 /**
  * Ensure .context/packages/ is in .gitignore
@@ -306,61 +312,6 @@ export async function updateGitignore(projectRoot: string): Promise<boolean> {
     return true;
   } catch (error) {
     log.debug(`Failed to update .gitignore: ${error}`);
-    return false;
-  }
-}
-
-const CURSOR_RULES_CONTENT = `# nocaap Context
-This project uses nocaap for organizational context.
-Read .context/INDEX.md for available documentation.
-`;
-
-/**
- * Add nocaap instruction to Cursor rules
- */
-export async function updateCursorRules(projectRoot: string): Promise<boolean> {
-  // Try .cursor/rules first (newer format), then .cursorrules
-  const cursorDir = paths.join(projectRoot, '.cursor');
-  const cursorRulesPath = paths.join(cursorDir, 'rules');
-  const legacyCursorRulesPath = paths.join(projectRoot, '.cursorrules');
-
-  try {
-    // Check if already configured
-    for (const rulePath of [cursorRulesPath, legacyCursorRulesPath]) {
-      if (await paths.exists(rulePath)) {
-        const content = await fs.readFile(rulePath, 'utf-8');
-        if (content.includes('.context/INDEX.md')) {
-          log.debug('Cursor rules already contain nocaap reference');
-          return false;
-        }
-      }
-    }
-
-    // Prefer .cursor/rules directory format
-    if (await paths.exists(cursorDir)) {
-      if (await paths.exists(cursorRulesPath)) {
-        const content = await fs.readFile(cursorRulesPath, 'utf-8');
-        const newContent = content.endsWith('\n') ? content : content + '\n';
-        await fs.writeFile(cursorRulesPath, `${newContent}\n${CURSOR_RULES_CONTENT}`);
-      } else {
-        await fs.writeFile(cursorRulesPath, CURSOR_RULES_CONTENT);
-      }
-      log.debug('Updated .cursor/rules with nocaap reference');
-      return true;
-    }
-
-    // Fall back to .cursorrules if .cursor/ doesn't exist
-    if (await paths.exists(legacyCursorRulesPath)) {
-      const content = await fs.readFile(legacyCursorRulesPath, 'utf-8');
-      const newContent = content.endsWith('\n') ? content : content + '\n';
-      await fs.writeFile(legacyCursorRulesPath, `${newContent}\n${CURSOR_RULES_CONTENT}`);
-    } else {
-      await fs.writeFile(legacyCursorRulesPath, CURSOR_RULES_CONTENT);
-    }
-    log.debug('Updated .cursorrules with nocaap reference');
-    return true;
-  } catch (error) {
-    log.debug(`Failed to update Cursor rules: ${error}`);
     return false;
   }
 }
@@ -397,4 +348,71 @@ export async function updateClaudeMd(projectRoot: string): Promise<boolean> {
     log.debug(`Failed to update CLAUDE.md: ${error}`);
     return false;
   }
+}
+
+// =============================================================================
+// Project Settings Helpers
+// =============================================================================
+
+/**
+ * Get search settings from project config
+ */
+export async function getSearchSettings(projectRoot: string): Promise<SearchSettings | undefined> {
+  const config = await readConfig(projectRoot);
+  return config?.search;
+}
+
+/**
+ * Set search settings in project config
+ */
+export async function setSearchSettings(
+  projectRoot: string,
+  settings: SearchSettings
+): Promise<void> {
+  const config = (await readConfig(projectRoot)) ?? { packages: [] };
+  config.search = settings;
+  await writeConfig(projectRoot, config);
+  log.debug('Updated project search settings');
+}
+
+/**
+ * Get push settings from project config
+ */
+export async function getPushSettings(projectRoot: string): Promise<PushSettings | undefined> {
+  const config = await readConfig(projectRoot);
+  return config?.push;
+}
+
+/**
+ * Set push settings in project config
+ */
+export async function setPushSettings(
+  projectRoot: string,
+  settings: PushSettings
+): Promise<void> {
+  const config = (await readConfig(projectRoot)) ?? { packages: [] };
+  config.push = settings;
+  await writeConfig(projectRoot, config);
+  log.debug('Updated project push settings');
+}
+
+/**
+ * Get index settings from project config
+ */
+export async function getIndexSettings(projectRoot: string): Promise<IndexSettings | undefined> {
+  const config = await readConfig(projectRoot);
+  return config?.index;
+}
+
+/**
+ * Set index settings in project config
+ */
+export async function setIndexSettings(
+  projectRoot: string,
+  settings: IndexSettings
+): Promise<void> {
+  const config = (await readConfig(projectRoot)) ?? { packages: [] };
+  config.index = settings;
+  await writeConfig(projectRoot, config);
+  log.debug('Updated project index settings');
 }

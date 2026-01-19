@@ -92,21 +92,21 @@ export function parseRepoInfo(url: string): RepoInfo {
  * Build a "create PR" URL for manual browser navigation
  * Used as fallback when gh CLI and API are unavailable
  */
-export function buildNewPrUrl(info: RepoInfo, branch: string): string {
+export function buildNewPrUrl(info: RepoInfo, branch: string, baseBranch: string = 'main'): string {
   const { provider, owner, repo } = info;
 
   switch (provider) {
     case 'github':
       // GitHub compare URL that opens PR creation
-      return `https://github.com/${owner}/${repo}/compare/main...${branch}?expand=1`;
+      return `https://github.com/${owner}/${repo}/compare/${baseBranch}...${branch}?expand=1`;
 
     case 'gitlab':
-      // GitLab merge request creation URL
-      return `https://gitlab.com/${owner}/${repo}/-/merge_requests/new?merge_request[source_branch]=${branch}`;
+      // GitLab merge request creation URL (target_branch is the base)
+      return `https://gitlab.com/${owner}/${repo}/-/merge_requests/new?merge_request[source_branch]=${branch}&merge_request[target_branch]=${baseBranch}`;
 
     case 'bitbucket':
       // Bitbucket PR creation URL
-      return `https://bitbucket.org/${owner}/${repo}/pull-requests/new?source=${branch}`;
+      return `https://bitbucket.org/${owner}/${repo}/pull-requests/new?source=${branch}&dest=${baseBranch}`;
 
     default:
       // Generic fallback - just return the repo URL

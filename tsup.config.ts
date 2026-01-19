@@ -8,9 +8,16 @@ export default defineConfig({
   clean: true,
   dts: true,
   sourcemap: true,
-  splitting: false,    
-  shims: true,         
-  treeshake: true,     
+  splitting: false,
+  shims: true,
+  treeshake: true,
+  // External packages with native bindings or optional dynamic imports
+  external: [
+    '@lancedb/lancedb',
+    'apache-arrow',
+    'ollama',
+    '@xenova/transformers',
+  ],
   banner: {
     js: '#!/usr/bin/env node',
   },
