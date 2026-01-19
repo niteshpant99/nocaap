@@ -1,6 +1,6 @@
 {
   "name": "nocaap",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Normalized Organizational Context-as-a-Package. Standardize your AI agent context.",
   "type": "module",
   "bin": {

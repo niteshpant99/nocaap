@@ -14,6 +14,10 @@ This document outlines the technical design for the **nocaap** Proof of Concept 
 *   **Git Engine:** `simple-git` (Lightweight wrapper for native git)
 *   **Validation:** `zod`
 *   **Parsing:** `gray-matter` (Frontmatter)
+*   **MCP Server:** `@modelcontextprotocol/sdk` (AI agent integration)
+*   **Search Engine:** `@orama/orama` (Full-text search with BM25)
+*   **Vector Store:** `lancedb` (Vector similarity search)
+*   **Embeddings:** Ollama, OpenAI, or Transformers.js
 
 ## 1. Data Structures
 
@@ -108,7 +112,80 @@ Generates the context file for the AI.
 | **Circular Registry** | Max recursion depth + Visited URL Set. |
 | **Auth Failure** | Graceful degradation. If a user selects a restricted repo, we warn & skip, don't crash. |
 
-## 4. Out of Scope (PoC)
+## 4. MCP Server Architecture
+
+The MCP (Model Context Protocol) server exposes nocaap context to AI agents like Claude Desktop.
+
+### Transport
+*   **Protocol:** JSON-RPC 2.0 over stdio
+*   **Transport:** `StdioServerTransport` from MCP SDK
+*   **Critical:** No stdout logging (corrupts protocol) - errors go to stderr
+
+### Resources (Passive Data)
+| Resource | URI | Purpose |
+|----------|-----|---------|
+| **index** | `nocaap://index` | Full INDEX.md content for context discovery |
+| **manifest** | `nocaap://manifest` | Package metadata and search availability |
+
+### Tools (Active Operations)
+| Tool | Purpose |
+|------|---------|
+| **get_overview** | Returns INDEX.md - recommended first call for agents |
+| **search** | Full-text, semantic, or hybrid search across all packages |
+| **get_document** | Retrieve full document content by path |
+| **get_section** | Extract specific section by heading |
+| **list_contexts** | List installed packages and their sources |
+
+### Security
+*   Path traversal protection: All paths validated to stay within `.context/`
+*   Read-only: MCP server cannot modify files
+
+## 5. Search Engine Architecture
+
+### A. Full-Text Search (Orama)
+*   **Algorithm:** BM25 ranking
+*   **Index:** Stored as `.context/index.orama.json`
+*   **Fields:** content, title, summary, headings, tags, package
+
+### B. Semantic Search (Vector Store)
+*   **Storage:** LanceDB (embedded vector database)
+*   **Index:** Stored as `.context/index.lance/`
+*   **Providers:** Ollama (default), OpenAI, Transformers.js (fallback)
+
+### C. Hybrid Search (RRF Fusion)
+Combines BM25 and vector results using Reciprocal Rank Fusion:
+```
+RRF_score(d) = Σ (weight_i / (k + rank_i(d)))
+```
+*   **Default weights:** fulltext=0.4, vector=0.6
+*   **RRF constant (k):** 60 (configurable)
+*   **Path boosting:** +15% per query keyword in file path
+*   **Index boosting:** +25% for README.md and index.md files
+
+### D. Chunking Strategy
+*   **Target:** 500 tokens per chunk (configurable)
+*   **Boundaries:** Respects markdown headings (h1-h3)
+*   **Overlap:** 50 tokens between chunks
+*   **Metadata:** Frontmatter extracted and attached to each chunk
+
+## 6. Configuration System
+
+### Priority Order
+```
+CLI flags > Project config > Global config > Defaults
+```
+
+### Global Config (`~/.nocaap/config.json`)
+*   Default registry URL
+*   Embedding provider settings
+*   Push defaults (base branch)
+
+### Project Config (`.context/context.config.json`)
+*   Installed packages
+*   Search weight tuning
+*   Index settings
+
+## 7. Out of Scope (Current Version)
 *   Legacy Git server support (Bitbucket Server / non-partial-clone servers).
 *   Interactive Merge resolution for dirty states.
 *   `nocaap create` scaffolding command.
