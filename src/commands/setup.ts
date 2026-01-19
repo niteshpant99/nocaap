@@ -193,11 +193,36 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
   log.newline();
 
   // Step 4: Interactive selection
-  const choices = accessibleContexts.map(({ context }) => ({
-    name: formatContextChoice(context),
-    value: context.name,
-    checked: false,
-  }));
+  // Get already installed packages to mark them
+  const currentConfig = await readConfig(projectRoot);
+  const installedAliases = new Set(
+    currentConfig?.packages.map(p => p.alias) ?? []
+  );
+
+  // Build choices with installed status
+  const choices = accessibleContexts.map(({ context }) => {
+    const alias = generateAlias(context);
+    const isInstalled = installedAliases.has(alias);
+
+    return {
+      name: isInstalled
+        ? `${formatContextChoice(context)} ${style.dim('[already installed]')}`
+        : formatContextChoice(context),
+      value: context.name,
+      checked: false,
+      disabled: isInstalled ? 'Already installed' : false,
+    };
+  });
+
+  // Show count of already installed
+  const installedCount = [...installedAliases].filter(alias =>
+    accessibleContexts.some(({ context }) => generateAlias(context) === alias)
+  ).length;
+
+  if (installedCount > 0) {
+    log.info(`${installedCount} package(s) already installed (shown as disabled)`);
+    log.newline();
+  }
 
   const selectedNames = await checkbox({
     message: 'Select contexts to install:',
@@ -220,9 +245,9 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
   }
 
   // Save registry URL to config
-  const existingConfig = (await readConfig(projectRoot)) ?? { packages: [] };
-  existingConfig.registryUrl = registryUrl;
-  await writeConfig(projectRoot, existingConfig);
+  const configToUpdate = (await readConfig(projectRoot)) ?? { packages: [] };
+  configToUpdate.registryUrl = registryUrl;
+  await writeConfig(projectRoot, configToUpdate);
 
   log.newline();
 
@@ -238,6 +263,13 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     if (!context) continue;
 
     const alias = generateAlias(context);
+
+    // Double-check: skip if already installed
+    if (installedAliases.has(alias)) {
+      log.dim(`Skipping ${alias} (already installed)`);
+      continue;
+    }
+
     const spinner = createSpinner(`Installing ${style.bold(context.name)}...`).start();
 
     try {

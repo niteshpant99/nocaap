@@ -141,14 +141,16 @@ program
 
 program
   .command('config [key] [value]')
-  .description('Manage global nocaap configuration')
+  .description('Manage nocaap configuration')
   .option('-l, --list', 'Show all configuration')
-  .option('--clear', 'Clear the specified config key')
+  .option('-g, --global', 'Use global config scope')
+  .option('-p, --project', 'Use project config scope')
   .action(async (key, value, options) => {
     try {
       await configCommand(key, value, {
         list: options.list,
-        clear: options.clear,
+        global: options.global,
+        project: options.project,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
