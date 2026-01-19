@@ -312,6 +312,15 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
     await generateIndexWithProgress(projectRoot);
   }
 
+  // Step 7.5: Post-setup indexing wizard
+  if (successCount > 0) {
+    log.newline();
+    log.hr();
+
+    const { runIndexWizard } = await import('./wizard/index-wizard.js');
+    await runIndexWizard({ projectRoot });
+  }
+
   // Step 8: Offer CLAUDE.md integration
   if (successCount > 0) {
     log.newline();
