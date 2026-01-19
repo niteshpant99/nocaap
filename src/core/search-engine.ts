@@ -12,6 +12,7 @@ import type { Chunk } from './chunker.js';
 import { VectorStore } from './vector-store.js';
 import { generateQueryEmbedding, type EmbeddingProvider } from './embeddings.js';
 import { reciprocalRankFusion, normalizeScores, type RankedResult } from './fusion.js';
+import { resolveSearchSettings, type ResolvedSearchSettings } from './settings.js';
 
 // =============================================================================
 // Constants
@@ -26,9 +27,12 @@ const DEFAULT_LIMIT = 10;
 /** Index version for future compatibility */
 const INDEX_VERSION = '1.0.0';
 
-/** RRF weight configuration - favor semantic search to reduce keyword noise */
-const RRF_FULLTEXT_WEIGHT = 0.4;
-const RRF_VECTOR_WEIGHT = 0.6;
+/** Default RRF settings (used when settings can't be resolved) */
+const DEFAULT_SEARCH_SETTINGS: ResolvedSearchSettings = {
+  fulltextWeight: 0.4,
+  vectorWeight: 0.6,
+  rrfK: 60,
+};
 
 // =============================================================================
 // Types
@@ -131,6 +135,7 @@ export class SearchEngine {
   private vectorStore: VectorStore | null = null;
   private projectRoot: string | null = null;
   private embeddingProvider: EmbeddingProvider = 'auto';
+  private searchSettings: ResolvedSearchSettings = DEFAULT_SEARCH_SETTINGS;
 
   /**
    * Check if the search engine has been initialized
@@ -221,6 +226,15 @@ export class SearchEngine {
 
       // Try to initialize vector store if it exists
       await this.initializeVectorStore();
+
+      // Load search settings from config
+      try {
+        this.searchSettings = await resolveSearchSettings(projectRoot);
+        log.debug(`Search settings: fulltext=${this.searchSettings.fulltextWeight}, vector=${this.searchSettings.vectorWeight}, k=${this.searchSettings.rrfK}`);
+      } catch {
+        log.debug('Could not resolve search settings, using defaults');
+        this.searchSettings = DEFAULT_SEARCH_SETTINGS;
+      }
 
       return true;
     } catch (error) {
@@ -396,10 +410,11 @@ export class SearchEngine {
       score: r.score,
     }));
 
-    // Apply Reciprocal Rank Fusion with weighted scoring
+    // Apply Reciprocal Rank Fusion with weighted scoring from config
     const fused = reciprocalRankFusion(ftRanked, vecRanked, {
-      fulltextWeight: RRF_FULLTEXT_WEIGHT,
-      vectorWeight: RRF_VECTOR_WEIGHT,
+      fulltextWeight: this.searchSettings.fulltextWeight,
+      vectorWeight: this.searchSettings.vectorWeight,
+      k: this.searchSettings.rrfK,
     });
 
     // Apply path-based boost (keywords in query matching folder/file names)

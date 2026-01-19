@@ -11,8 +11,10 @@ import {
   detectProvider,
   generateEmbeddings,
   getProviderConfig,
+  setEmbeddingSettings,
   type EmbeddingProvider,
 } from '../core/embeddings.js';
+import { resolveEmbeddingSettings } from '../core/settings.js';
 import * as paths from '../utils/paths.js';
 import { log, withSpinner } from '../utils/logger.js';
 import type { Chunk } from '../core/chunker.js';
@@ -63,6 +65,12 @@ export async function indexSearchCommand(
     throw new Error(
       'No packages configured. Run `nocaap setup` or `nocaap add` first.'
     );
+  }
+
+  // Load embedding settings from config (for semantic indexing)
+  if (semantic) {
+    const embeddingSettings = await resolveEmbeddingSettings(projectRoot);
+    setEmbeddingSettings(embeddingSettings);
   }
 
   log.info(`Building search index for ${config.packages.length} package(s)...`);

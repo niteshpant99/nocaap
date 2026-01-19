@@ -3,6 +3,37 @@
  * Embedding provider detection and generation for semantic search
  */
 import { log } from '../utils/logger.js';
+import type { ResolvedEmbeddingSettings } from './settings.js';
+
+// =============================================================================
+// Module State
+// =============================================================================
+
+/** Embedding settings injected from config (or defaults) */
+let embeddingSettings: ResolvedEmbeddingSettings | null = null;
+
+/**
+ * Set embedding settings from configuration
+ * Should be called before generating embeddings
+ */
+export function setEmbeddingSettings(settings: ResolvedEmbeddingSettings): void {
+  embeddingSettings = settings;
+  log.debug(`Embedding settings: provider=${settings.provider}, model=${settings.ollamaModel}`);
+}
+
+/**
+ * Get the configured Ollama base URL (or default)
+ */
+function getOllamaBaseUrl(): string {
+  return embeddingSettings?.ollamaBaseUrl ?? 'http://localhost:11434';
+}
+
+/**
+ * Get the configured Ollama model (or default)
+ */
+function getOllamaModel(): string {
+  return embeddingSettings?.ollamaModel ?? PROVIDER_CONFIG.ollama.model;
+}
 
 // =============================================================================
 // Types
@@ -77,7 +108,8 @@ export async function detectProvider(): Promise<Exclude<EmbeddingProvider, 'auto
  */
 async function isOllamaAvailable(): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags', {
+    const baseUrl = getOllamaBaseUrl();
+    const response = await fetch(`${baseUrl}/api/tags`, {
       signal: AbortSignal.timeout(2000),
     });
 
@@ -140,6 +172,7 @@ export async function generateQueryEmbedding(
 
 async function generateOllamaEmbeddings(texts: string[]): Promise<EmbeddingResult> {
   const config = PROVIDER_CONFIG.ollama;
+  const model = getOllamaModel();
   const vectors: number[][] = [];
 
   // Process in batches
@@ -150,7 +183,7 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<EmbeddingResul
       // Dynamic import to handle optional dependency
       const ollama = await import('ollama');
       const response = await ollama.default.embed({
-        model: config.model,
+        model,
         input: batch,
       });
 
@@ -163,7 +196,7 @@ async function generateOllamaEmbeddings(texts: string[]): Promise<EmbeddingResul
 
   return {
     vectors,
-    model: config.model,
+    model,
     dimensions: config.dimensions,
     provider: 'ollama',
   };
