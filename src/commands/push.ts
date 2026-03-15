@@ -15,6 +15,7 @@ import {
   commitAll,
   pushBranch,
   getDefaultBranch,
+  isDirty,
 } from '../core/git-engine.js';
 import { parseRepoInfo, buildNewPrUrl } from '../utils/providers.js';
 import { createPr } from '../core/github.js';
@@ -37,6 +38,16 @@ interface PackageInfo {
   localCommit: string;
 }
 
+type PushStatus = 'pushed' | 'skipped' | 'failed';
+type SkipReason = 'no_changes' | 'nothing_to_commit';
+
+interface PushResult {
+  status: PushStatus;
+  prUrl?: string;
+  error?: string;
+  skipReason?: SkipReason;
+}
+
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -57,21 +68,6 @@ function getDateString(): string {
  */
 function generateBranchName(alias: string): string {
   return `nocaap/${alias}-${getDateString()}`;
-}
-
-/**
- * Check if a package has local changes by comparing directory contents
- * Since we flatten the sparse checkout, we compare against a fresh clone
- */
-async function _hasLocalChanges(
-  packagePath: string,
-  _repoUrl: string,
-  _sparsePath?: string
-): Promise<boolean> {
-  // For now, we do a simple check: if the package directory exists and has files
-  // A more sophisticated check would compare file hashes
-  // For MVP, we assume any package might have changes and let git diff handle it
-  return paths.exists(packagePath);
 }
 
 /**
@@ -127,7 +123,7 @@ async function pushSinglePackage(
   projectRoot: string,
   pkg: PackageInfo,
   commitMessage: string
-): Promise<{ success: boolean; prUrl?: string; error?: string }> {
+): Promise<PushResult> {
   const packagePath = paths.getPackagePath(projectRoot, pkg.alias);
   const branchName = generateBranchName(pkg.alias);
   const repoInfo = parseRepoInfo(pkg.source);
@@ -146,7 +142,7 @@ async function pushSinglePackage(
     if (remoteCommit !== pkg.localCommit) {
       checkSpinner.fail('Upstream has diverged');
       return {
-        success: false,
+        status: 'failed',
         error: `Upstream has changed. Run 'nocaap update ${pkg.alias}' first.`,
       };
     }
@@ -154,7 +150,7 @@ async function pushSinglePackage(
   } catch (error) {
     checkSpinner.fail('Failed to check upstream');
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, error: msg };
+    return { status: 'failed', error: msg };
   }
 
   // Step 2: Clone to temp
@@ -170,51 +166,102 @@ async function pushSinglePackage(
   } catch (error) {
     cloneSpinner.fail('Clone failed');
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, error: msg };
+    return { status: 'failed', error: msg };
   }
 
   try {
-    // Step 3: Create feature branch
-    const branchSpinner = createSpinner('Creating branch...').start();
-    await createBranch(tempDir, branchName);
-    branchSpinner.succeed(`Created branch: ${branchName}`);
-
-    // Step 4: Copy files to sparse path location
+    // Step 3: Copy files to sparse path location
     const copySpinner = createSpinner('Copying changes...').start();
-    const targetPath = pkg.path
-      ? paths.join(tempDir, pkg.path.replace(/^\/+/, ''))
-      : tempDir;
+    const sparsePath = pkg.path
+      ? paths.toUnix(pkg.path).replace(/^\/+/, '')
+      : '';
+    const sparseSegments = sparsePath.split('/').filter(Boolean);
 
-    // Ensure target directory exists and copy files
+    if (sparseSegments.includes('..')) {
+      throw new Error(
+        `Invalid package path '${pkg.path}': path traversal segments are not allowed`
+      );
+    }
+
+    const targetPath = sparsePath
+      ? paths.join(tempDir, sparsePath)
+      : tempDir;
+    if (!paths.isWithin(tempDir, targetPath)) {
+      throw new Error(`Resolved target path escapes temp clone root: ${targetPath}`);
+    }
+
+    // Determine source: handle both flat and non-flat package layouts
+    // Flat = files at package root (post-flattening by sparseClone)
+    // Non-flat = files retain original directory structure
+    let sourcePath = packagePath;
+    if (sparsePath) {
+      const sparseSubdir = paths.join(packagePath, sparsePath);
+      if (!paths.isWithin(packagePath, sparseSubdir)) {
+        throw new Error(
+          `Resolved source path escapes package directory: ${sparseSubdir}`
+        );
+      }
+      const stat = await fs.stat(sparseSubdir).catch(() => null);
+      if (stat?.isDirectory()) {
+        sourcePath = sparseSubdir;
+        log.debug(`Package is non-flat, using sparse subdir: ${sparseSubdir}`);
+      }
+    }
+    if (!paths.isWithin(packagePath, sourcePath)) {
+      throw new Error(
+        `Resolved source path escapes package directory: ${sourcePath}`
+      );
+    }
+
     await paths.ensureDir(targetPath);
 
-    // Copy all files from package to target (excluding .git)
-    const items = await fs.readdir(packagePath);
+    // Mirror target: clear existing contents so deletions are reflected
+    if (sparsePath && targetPath !== tempDir) {
+      const existing = await fs.readdir(targetPath).catch(() => []);
+      for (const item of existing) {
+        await fs.remove(paths.join(targetPath, item));
+      }
+    }
+
+    // Copy all files from source to target (excluding .git)
+    const items = await fs.readdir(sourcePath);
     for (const item of items) {
       if (item === '.git') continue;
-      const srcPath = paths.join(packagePath, item);
+      const srcPath = paths.join(sourcePath, item);
       const destPath = paths.join(targetPath, item);
       await fs.copy(srcPath, destPath, { overwrite: true });
     }
     copySpinner.succeed('Changes copied');
 
-    // Step 5: Commit
+    // Step 4: Check for actual changes before branching
+    const hasChanges = await isDirty(tempDir);
+    if (!hasChanges) {
+      await cleanup();
+      return { status: 'skipped', skipReason: 'no_changes' };
+    }
+
+    // Step 5: Create feature branch (only if changes exist)
+    const branchSpinner = createSpinner('Creating branch...').start();
+    await createBranch(tempDir, branchName);
+    branchSpinner.succeed(`Created branch: ${branchName}`);
+
+    // Step 6: Commit
     const commitSpinner = createSpinner('Committing...').start();
     try {
       await commitAll(tempDir, commitMessage);
       commitSpinner.succeed('Changes committed');
     } catch (error) {
-      // If commit fails (no changes), that's actually a success case
+      // Defensive fallback: isDirty should catch this, but just in case
       const msg = error instanceof Error ? error.message : '';
       if (msg.includes('nothing to commit')) {
         commitSpinner.warn('No changes to commit');
         await cleanup();
-        return { success: true, error: 'No changes detected' };
+        return { status: 'skipped', skipReason: 'nothing_to_commit' };
       }
       throw error;
     }
 
-    // Step 6: Push
+    // Step 7: Push
     const pushSpinner = createSpinner('Pushing to remote...').start();
     try {
       await pushBranch(tempDir, branchName);
@@ -224,7 +271,7 @@ async function pushSinglePackage(
       throw error;
     }
 
-    // Step 7: Create PR
+    // Step 8: Create PR
     const prSpinner = createSpinner('Creating PR...').start();
     const manualUrl = buildNewPrUrl(repoInfo, branchName, baseBranch);
 
@@ -245,18 +292,16 @@ async function pushSinglePackage(
       prSpinner.warn('PR not created automatically');
     }
 
-    // Cleanup
     await cleanup();
 
     return {
-      success: true,
+      status: 'pushed',
       prUrl: prResult.url || manualUrl,
     };
   } catch (error) {
-    // Cleanup on error
     await cleanup();
     const msg = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, error: msg };
+    return { status: 'failed', error: msg };
   }
 }
 
@@ -334,7 +379,7 @@ export async function pushCommand(
   const commitMessage = options.message || defaultMessage;
 
   // Push each package
-  const results: Array<{ alias: string; success: boolean; prUrl?: string; error?: string }> = [];
+  const results: Array<{ alias: string } & PushResult> = [];
 
   for (const pkg of packagesToPush) {
     log.hr();
@@ -349,11 +394,14 @@ export async function pushCommand(
     const result = await pushSinglePackage(projectRoot, pkg, commitMessage);
     results.push({ alias: pkg.alias, ...result });
 
-    if (result.success && result.prUrl) {
+    if (result.status === 'pushed' && result.prUrl) {
       log.newline();
       log.success(`PR created for ${pkg.alias}:`);
       log.info(`  ${style.url(result.prUrl)}`);
-    } else if (result.error) {
+    } else if (result.status === 'skipped') {
+      log.newline();
+      log.info(`${pkg.alias}: No changes to push`);
+    } else if (result.status === 'failed') {
       log.newline();
       log.error(`Failed: ${result.error}`);
     }
@@ -364,14 +412,14 @@ export async function pushCommand(
   log.hr();
   log.newline();
 
-  const successCount = results.filter((r) => r.success).length;
-  const failCount = results.filter((r) => !r.success).length;
+  const pushed = results.filter((r) => r.status === 'pushed');
+  const skipped = results.filter((r) => r.status === 'skipped');
+  const failed = results.filter((r) => r.status === 'failed');
 
-  if (successCount > 0) {
-    log.success(`${successCount} package(s) pushed successfully.`);
+  if (pushed.length > 0) {
+    log.success(`${pushed.length} package(s) pushed successfully.`);
 
-    // List PR URLs
-    const withPrs = results.filter((r) => r.success && r.prUrl);
+    const withPrs = pushed.filter((r) => r.prUrl);
     if (withPrs.length > 0) {
       log.newline();
       log.info('Pull Requests:');
@@ -381,10 +429,18 @@ export async function pushCommand(
     }
   }
 
-  if (failCount > 0) {
+  if (skipped.length > 0) {
     log.newline();
-    log.warn(`${failCount} package(s) failed.`);
-    for (const r of results.filter((r) => !r.success)) {
+    log.info(`${skipped.length} package(s) skipped (no changes).`);
+    for (const r of skipped) {
+      log.dim(`  ${r.alias}: ${r.skipReason}`);
+    }
+  }
+
+  if (failed.length > 0) {
+    log.newline();
+    log.warn(`${failed.length} package(s) failed.`);
+    for (const r of failed) {
       log.dim(`  ${r.alias}: ${r.error}`);
     }
   }
