@@ -27,7 +27,11 @@
     "test:eval:core": "tsx tests/eval/run-eval.ts --fixtures --core",
     "test:eval:baseline": "tsx tests/eval/run-eval.ts --fixtures --record-baseline",
     "test:eval:compare": "tsx tests/eval/run-eval.ts --fixtures --compare-baseline",
-    "test:query": "tsx test-debug.ts"
+    "test:query": "tsx test-debug.ts",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": "eslint --fix"
   },
   "keywords": [
     "ai",
@@ -79,6 +83,8 @@
     "@typescript-eslint/parser": "^8.53.0",
     "@vitest/coverage-v8": "^4.0.17",
     "eslint": "^9.39.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "tsup": "^8.0.1",
     "tsx": "^4.21.0",
     "typescript": "^5.3.2",
