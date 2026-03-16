@@ -19,6 +19,9 @@ nocaap uses a dual-layer testing approach:
 # Build first
 npm run build
 
+# Run unit tests (fast, no build needed)
+npm run test:unit
+
 # Run evaluation against public fixtures
 npm run test:eval
 
@@ -27,6 +30,46 @@ npm run test:eval
 
 # Run full integration tests
 ./tests/run-tests.sh
+
+# Run everything
+npm run test:all
+```
+
+---
+
+## 0. Unit Tests (Vitest)
+
+Fast, isolated tests for pure functions. Run in < 5 seconds.
+
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run test:unit` | Run all unit tests once |
+| `npm run test:watch` | Re-run on file changes |
+| `npm run test:coverage` | Generate coverage report |
+| `npm run test:quick` | Build + typecheck + unit tests |
+
+### Test Files
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `tests/unit/fusion.test.ts` | 14 | RRF algorithm, score normalization |
+| `tests/unit/schemas.test.ts` | 25 | Config, Registry, Lockfile validation |
+
+### Adding New Unit Tests
+
+Create `tests/unit/<module>.test.ts`:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { myFunction } from '../../src/core/module.js';
+
+describe('myFunction', () => {
+  it('does something', () => {
+    expect(myFunction('input')).toBe('output');
+  });
+});
 ```
 
 ---
@@ -334,20 +377,29 @@ Run with: `npm run test:eval:local`
 
 | # | Test | Command | Status |
 |---|------|---------|--------|
+| 0 | Unit tests | `npm run test:unit` | ☐ |
 | 1 | Build | `npm run build` | ☐ |
 | 2 | Smoke tests | `./tests/smoke-test.sh` | ☐ |
 | 3 | Evaluation (fixtures) | `npm run test:eval` | ☐ |
 | 4 | Integration tests | `./tests/run-tests.sh` | ☐ |
 | 5 | Baseline comparison | `npm run test:eval:compare` | ☐ |
-| 6 | Manual CLI tests | See section 4 | ☐ |
+| 6 | Manual CLI tests | See section 5 | ☐ |
 
 ---
 
 ## CI Integration
 
-For GitHub Actions or similar:
+The project includes a GitHub Actions workflow at `.github/workflows/test.yml`:
 
 ```yaml
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -355,12 +407,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
       - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit      # Vitest unit tests
       - run: npm run build
-      - run: npm run test:eval
-      - run: npm run test:eval:compare
-      - run: ./tests/smoke-test.sh
+      - run: npm run test:eval      # Search quality evaluation
 ```
 
 ---

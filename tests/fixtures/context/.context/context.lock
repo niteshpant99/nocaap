@@ -1,0 +1,27 @@
+{
+  "acme-identity": {
+    "commitHash": "abc123def456789",
+    "sparsePath": "identity",
+    "updatedAt": "2025-01-15T00:00:00.000Z"
+  },
+  "acme-products": {
+    "commitHash": "abc123def456789",
+    "sparsePath": "products",
+    "updatedAt": "2025-01-15T00:00:00.000Z"
+  },
+  "acme-projects": {
+    "commitHash": "abc123def456789",
+    "sparsePath": "projects",
+    "updatedAt": "2025-01-15T00:00:00.000Z"
+  },
+  "acme-past-projects": {
+    "commitHash": "abc123def456789",
+    "sparsePath": "past-projects",
+    "updatedAt": "2025-01-15T00:00:00.000Z"
+  },
+  "acme-design": {
+    "commitHash": "abc123def456789",
+    "sparsePath": "design",
+    "updatedAt": "2025-01-15T00:00:00.000Z"
+  }
+}
