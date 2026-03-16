@@ -1,0 +1,34 @@
+{
+  "packages": [
+    {
+      "alias": "acme-identity",
+      "source": "https://github.com/acme/docs",
+      "path": "identity",
+      "version": "main"
+    },
+    {
+      "alias": "acme-products",
+      "source": "https://github.com/acme/docs",
+      "path": "products",
+      "version": "main"
+    },
+    {
+      "alias": "acme-projects",
+      "source": "https://github.com/acme/docs",
+      "path": "projects",
+      "version": "main"
+    },
+    {
+      "alias": "acme-past-projects",
+      "source": "https://github.com/acme/docs",
+      "path": "past-projects",
+      "version": "main"
+    },
+    {
+      "alias": "acme-design",
+      "source": "https://github.com/acme/docs",
+      "path": "design",
+      "version": "main"
+    }
+  ]
+}

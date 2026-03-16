@@ -27,8 +27,8 @@ coverage/
 # Local/proprietary testing (not committed)
 tests/local/
 
-# nocaap local testing (don't commit test context)
-.context/
+# nocaap local context (don't commit user context)
+/.context/
 
 # Repomix
 repomix-output.txt
