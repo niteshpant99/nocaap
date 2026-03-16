@@ -44,6 +44,30 @@ pnpm run build
 npm link
 ```
 
+## ⚡ 5-Minute Quick Start (Human Flow)
+
+Use this if you want the shortest path from install to merged PR.
+
+```bash
+# 1) Install
+npm install -g nocaap
+
+# 2) Set your org registry
+nocaap config registry https://github.com/your-org/context-hub
+
+# 3) Install contexts in this project
+nocaap setup
+
+# 4) Sync before editing/pushing
+nocaap update <alias>
+
+# 5) Push changes as a PR
+nocaap push <alias> -m "Update documentation"
+```
+
+Then open the PR URL, review, and use **Squash and merge** in GitHub web UI.
+For the full walkthrough, see [`docs/GETTING_STARTED.md`](./docs/GETTING_STARTED.md).
+
 ## 🏗️ Setting Up Your Organization's Context Hub
 
 Want to create your own context registry? Use the **official starter template**:
@@ -156,6 +180,14 @@ nocaap push engineering -m "Update API documentation"
 - Auto-creates PR via gh CLI or GitHub API
 - Detects upstream divergence (requires `nocaap update` first)
 
+**After `nocaap push` (default flow):**
+1. Open the PR URL printed by the CLI.
+2. Review files and wait for checks.
+3. Use **Squash and merge** in GitHub web UI.
+4. Optionally delete the branch.
+
+Full guide: [`docs/GITHUB_WORKFLOW.md`](./docs/GITHUB_WORKFLOW.md)
+
 ### 5. Build Search Index
 
 Build a searchable index for AI agents to query your context.
@@ -242,6 +274,17 @@ nocaap generate
 | `nocaap index` | Build search index (add `--semantic` for vectors) |
 | `nocaap serve` | Start MCP server for AI agents |
 | `nocaap config [key] [value]` | Manage configuration |
+
+## 📚 Human Documentation
+
+These guides are written for people (not agent instructions):
+
+- [Documentation Index](./docs/README.md)
+- [Getting Started](./docs/GETTING_STARTED.md)
+- [GitHub Workflow](./docs/GITHUB_WORKFLOW.md)
+- [Troubleshooting](./docs/TROUBLESHOOTING.md)
+- [FAQ](./docs/FAQ.md)
+- [Releasing (maintainers)](./docs/RELEASING.md)
 
 ## 📂 Directory Structure
 

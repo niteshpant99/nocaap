@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-03-15
+
 ### Added
 
 - Post-setup indexing wizard to guide users through building a search index after setup
 - Vitest testing framework with unit test suite and coverage reporting
 - GitHub Actions CI workflow for automated testing on push and PR
+- Search evaluation test suite with fixture-based queries and accuracy thresholds
 - Path traversal protection in `nocaap push` command
 - Deletion mirroring in push so locally-deleted files appear as deletions in PRs
 
@@ -19,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Push path duplication for nested sparse packages — packages with paths like `/identity/colors` no longer create doubled paths (`identity/colors/identity/colors/...`) in PRs
 - PRs no longer created for unchanged packages during `nocaap push` — only packages with actual diffs get branches, commits, and PRs
+- `.gitignore` pattern anchored to repo root so test fixtures are tracked in version control
+- CI dependency lockfile synced for reproducible installs
 
 ## [0.0.2] - 2026-01-18
 
@@ -59,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Duplicate shebang lines in build output resolved via tsup banner configuration
 
-[Unreleased]: https://github.com/niteshpant99/nocaap/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/niteshpant99/nocaap/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/niteshpant99/nocaap/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/niteshpant99/nocaap/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/niteshpant99/nocaap/releases/tag/v0.0.1
