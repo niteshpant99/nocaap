@@ -66,7 +66,7 @@ nocaap push <alias> -m "Update documentation"
 ```
 
 Then open the PR URL, review, and use **Squash and merge** in GitHub web UI.
-For the full walkthrough, see [`docs/GETTING_STARTED.md`](./docs/GETTING_STARTED.md).
+For the full walkthrough, see the [Getting Started](https://docs.nocaap.org/getting-started/) guide.
 
 ## 🏗️ Setting Up Your Organization's Context Hub
 
@@ -186,7 +186,7 @@ nocaap push engineering -m "Update API documentation"
 3. Use **Squash and merge** in GitHub web UI.
 4. Optionally delete the branch.
 
-Full guide: [`docs/GITHUB_WORKFLOW.md`](./docs/GITHUB_WORKFLOW.md)
+Full guide: [GitHub Workflow](https://docs.nocaap.org/contributing/github-workflow/)
 
 ### 5. Build Search Index
 
@@ -257,8 +257,8 @@ nocaap list
 # Remove a package
 nocaap remove <alias>
 
-# Regenerate INDEX.md
-nocaap generate
+# Build search index (also regenerates INDEX.md)
+nocaap index
 ```
 
 ## 📋 Command Reference
@@ -279,12 +279,12 @@ nocaap generate
 
 These guides are written for people (not agent instructions):
 
-- [Documentation Index](./docs/README.md)
-- [Getting Started](./docs/GETTING_STARTED.md)
-- [GitHub Workflow](./docs/GITHUB_WORKFLOW.md)
-- [Troubleshooting](./docs/TROUBLESHOOTING.md)
-- [FAQ](./docs/FAQ.md)
-- [Releasing (maintainers)](./docs/RELEASING.md)
+- [Documentation](https://docs.nocaap.org)
+- [Getting Started](https://docs.nocaap.org/getting-started/)
+- [GitHub Workflow](https://docs.nocaap.org/contributing/github-workflow/)
+- [Troubleshooting](https://docs.nocaap.org/troubleshooting/)
+- [FAQ](https://docs.nocaap.org/faq/)
+- [Releasing (maintainers)](https://docs.nocaap.org/contributing/releasing/)
 
 ## 📂 Directory Structure
 

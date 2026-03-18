@@ -30,6 +30,12 @@ tests/local/
 # nocaap local context (don't commit user context)
 /.context/
 
+# MkDocs build output
+site/
+
+# Personal local notes for development
+docs.local/
+
 # Repomix
 repomix-output.txt
 

@@ -1,0 +1,55 @@
+site_name: nocaap
+site_url: https://docs.nocaap.org
+site_description: Normalized Organizational Context-as-a-Package. Standardize your AI agent context.
+repo_url: https://github.com/niteshpant99/nocaap
+repo_name: niteshpant99/nocaap
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Commands:
+    - setup: commands/setup.md
+    - add: commands/add.md
+    - update: commands/update.md
+    - list: commands/list.md
+    - remove: commands/remove.md
+    - push: commands/push.md
+    - index: commands/index.md
+    - serve: commands/serve.md
+    - config: commands/config.md
+  - Guides:
+    - MCP Server Setup: guides/mcp-setup.md
+    - Search & Indexing: guides/search.md
+  - FAQ: faq.md
+  - Troubleshooting: troubleshooting.md
+  - Contributing:
+    - GitHub Workflow: contributing/github-workflow.md
+    - Releasing: contributing/releasing.md
+    - Architecture: contributing/architecture.md
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.instant
+    - navigation.sections
+    - search.highlight
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true

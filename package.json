@@ -28,7 +28,9 @@
     "test:eval:baseline": "tsx tests/eval/run-eval.ts --fixtures --record-baseline",
     "test:eval:compare": "tsx tests/eval/run-eval.ts --fixtures --compare-baseline",
     "test:query": "tsx test-debug.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "docs:serve": "uv run mkdocs serve",
+    "docs:build": "uv run mkdocs build --strict"
   },
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix"
